@@ -250,9 +250,9 @@ export class BrightDataClient {
     intervalMs?: number;
     timeoutMs?: number;
   }): Promise<unknown> {
-    const maxAttempts = options.maxAttempts ?? 30;
-    const intervalMs = options.intervalMs ?? 2000;
-    const timeoutMs = options.timeoutMs ?? 60_000;
+    const maxAttempts = options.maxAttempts ?? 40;
+    const intervalMs = options.intervalMs ?? 3000;
+    const timeoutMs = options.timeoutMs ?? 120_000;
     const startTime = Date.now();
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
