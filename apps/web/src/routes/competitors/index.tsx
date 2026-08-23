@@ -15,6 +15,7 @@ import {
   CheckmarkCircle01Icon,
   Tag01Icon,
   LinkSquare01Icon,
+  Target02Icon,
 } from "@hugeicons/core-free-icons";
 import { competitorsQueryOptions } from "../../features/competitors/api/competitor.queries.ts";
 
@@ -30,13 +31,24 @@ function CompetitorsIndexPage() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Competitors
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Track public campaign positioning, offers and pricing over time.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Competitors
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Track public campaign positioning, offers and pricing over time.
+          </p>
+        </div>
+
+        <Button
+          size="sm"
+          render={<Link to="/competitors/new" />}
+          className="gap-2 text-xs self-start sm:self-auto cursor-pointer"
+        >
+          <HugeiconsIcon icon={Target02Icon} strokeWidth={2} className="size-3.5" />
+          <span>Track competitor</span>
+        </Button>
       </div>
 
       <Separator />
@@ -84,16 +96,26 @@ function CompetitorsIndexPage() {
           <div className="mx-auto size-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-3">
             <HugeiconsIcon icon={Store01Icon} strokeWidth={2} className="size-5" />
           </div>
-          <h3 className="text-base font-semibold text-foreground">No Tracked Competitors</h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            Trigger a scrape run from the API to seed Lumora and start tracking campaigns.
+          <h3 className="text-base font-semibold text-foreground">No Competitors Tracked Yet</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+            Connect a public competitor website to a custom Bright Data Scraper Studio collector to capture verified campaign intelligence.
           </p>
+          <div className="mt-4">
+            <Button
+              size="sm"
+              render={<Link to="/competitors/new" />}
+              className="gap-2 text-xs cursor-pointer"
+            >
+              <HugeiconsIcon icon={Target02Icon} strokeWidth={2} className="size-3.5" />
+              <span>Track competitor</span>
+            </Button>
+          </div>
         </Card>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
-              Showing {competitors.length} tracked competitor
+              Showing {competitors.length} tracked competitor{competitors.length > 1 ? "s" : ""}
             </span>
           </div>
 
@@ -122,28 +144,26 @@ function CompetitorsIndexPage() {
 
                     <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1 text-xs self-start sm:self-auto">
                       <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3 text-emerald-400" />
-                      <span>Healthy</span>
+                      <span>Tracked</span>
                     </Badge>
                   </div>
                 </CardHeader>
 
                 <CardContent className="space-y-2 py-2">
                   <p className="text-sm font-medium text-foreground">
-                    Smarter lighting. Simpler living.
+                    Public Campaign Intelligence
                   </p>
                   <div className="flex items-center gap-1.5 text-xs text-primary">
                     <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} className="size-3.5" />
-                    <span>Free Pro Upgrade with every Starter Kit</span>
+                    <span>Monitored with Bright Data Scraper Studio</span>
                   </div>
                 </CardContent>
 
                 <CardFooter className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-4">
-                    <span className="text-base font-bold text-foreground tabular-nums">
-                      ₹2,299
+                    <span className="text-muted-foreground font-mono">
+                      Domain: {comp.domain}
                     </span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="text-muted-foreground tabular-nums">2 changes recorded</span>
                   </div>
 
                   <Button

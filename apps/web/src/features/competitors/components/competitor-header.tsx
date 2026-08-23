@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@campaign-lens/ui/components/button";
-import { Badge } from "@campaign-lens/ui/components/badge";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   LinkSquare01Icon,
   RefreshIcon,
   CheckmarkCircle01Icon,
+  AlertCircleIcon,
 } from "@hugeicons/core-free-icons";
 import type { Competitor, TrackedSource } from "../types.ts";
-import { triggerSourceRun, triggerDebugLumoraRun } from "../api/competitor.queries.ts";
+import { triggerSourceMonitor, triggerDebugLumoraRun } from "../api/competitor.queries.ts";
+import { SourceHealthBadge } from "./source-health-badge.tsx";
 
 interface CompetitorHeaderProps {
   competitor: Competitor;
@@ -18,27 +19,41 @@ interface CompetitorHeaderProps {
 
 export function CompetitorHeader({ competitor, primarySource }: CompetitorHeaderProps) {
   const queryClient = useQueryClient();
-  const [isRunning, setIsRunning] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
   const [lastActionStatus, setLastActionStatus] = useState<string | null>(null);
 
-  const handleManualRun = async () => {
-    setIsRunning(true);
+  const handleMonitorNow = async () => {
+    setIsMonitoring(true);
     setLastActionStatus(null);
     try {
       if (primarySource) {
-        await triggerSourceRun(primarySource.id);
+        const result = (await triggerSourceMonitor(primarySource.id)) as {
+          status?: string;
+          changes?: unknown[];
+          recoveryAttempted?: boolean;
+        };
+        if (result.status === "healthy") {
+          const changeCount = result.changes?.length ?? 0;
+          setLastActionStatus(changeCount > 0 ? `${changeCount} change(s) detected` : "Verified · Baseline unchanged");
+        } else if (result.status === "recovered") {
+          setLastActionStatus("Source recovered · Baseline unchanged");
+        } else if (result.status === "degraded") {
+          setLastActionStatus("Extraction degraded · Self-healing queued");
+        } else {
+          setLastActionStatus("Monitoring completed");
+        }
       } else {
         await triggerDebugLumoraRun();
+        setLastActionStatus("Scan complete");
       }
       await queryClient.invalidateQueries({ queryKey: ["competitors", competitor.id] });
-      setLastActionStatus("Scan complete");
-      setTimeout(() => setLastActionStatus(null), 3000);
+      setTimeout(() => setLastActionStatus(null), 5000);
     } catch (err) {
-      console.error("Manual run failed:", err);
-      setLastActionStatus(err instanceof Error ? err.message : "Scan failed");
-      setTimeout(() => setLastActionStatus(null), 4000);
+      console.error("Monitor run failed:", err);
+      setLastActionStatus(err instanceof Error ? err.message : "Monitoring failed");
+      setTimeout(() => setLastActionStatus(null), 5000);
     } finally {
-      setIsRunning(false);
+      setIsMonitoring(false);
     }
   };
 
@@ -60,10 +75,7 @@ export function CompetitorHeader({ competitor, primarySource }: CompetitorHeader
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             {competitor.name}
           </h1>
-          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1 text-xs">
-            <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3 text-emerald-400" />
-            <span>Healthy</span>
-          </Badge>
+          {primarySource && <SourceHealthBadge health={primarySource.health} />}
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -87,8 +99,8 @@ export function CompetitorHeader({ competitor, primarySource }: CompetitorHeader
 
       <div className="flex items-center gap-3">
         {lastActionStatus && (
-          <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-mono">
-            <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3.5" />
+          <span className="inline-flex items-center gap-1 text-xs text-foreground font-mono bg-muted px-2.5 py-1">
+            <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3.5 text-emerald-400" />
             {lastActionStatus}
           </span>
         )}
@@ -96,16 +108,16 @@ export function CompetitorHeader({ competitor, primarySource }: CompetitorHeader
         <Button
           variant="outline"
           size="sm"
-          onClick={handleManualRun}
-          disabled={isRunning}
+          onClick={handleMonitorNow}
+          disabled={isMonitoring}
           className="gap-2 cursor-pointer text-xs"
         >
           <HugeiconsIcon
             icon={RefreshIcon}
             strokeWidth={2}
-            className={`size-3.5 ${isRunning ? "animate-spin text-primary" : "text-muted-foreground"}`}
+            className={`size-3.5 ${isMonitoring ? "animate-spin text-primary" : "text-muted-foreground"}`}
           />
-          <span>{isRunning ? "Running scan..." : "Run scan"}</span>
+          <span>{isMonitoring ? "Monitoring source..." : "Monitor now"}</span>
         </Button>
       </div>
     </div>

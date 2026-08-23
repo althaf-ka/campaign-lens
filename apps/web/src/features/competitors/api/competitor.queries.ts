@@ -1,8 +1,34 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { CompetitorDetailResponse, CompetitorListResponse } from "../types.ts";
-
 import { API_BASE_URL } from "../../../config/api.ts";
 
+export interface CreateCompetitorPayload {
+  name: string;
+  domain: string;
+  source: {
+    name: string;
+    url: string;
+    type: "homepage" | "pricing";
+    collectorId: string;
+    intervalMinutes: number;
+  };
+}
+
+export interface CreateCompetitorResponse {
+  competitor: {
+    id: string;
+    name: string;
+    domain: string;
+  };
+  source: {
+    id: string;
+    name: string;
+    url: string;
+    collectorId: string;
+    health: string;
+  };
+  initialMonitor: unknown;
+}
 
 export async function fetchCompetitors(): Promise<CompetitorListResponse> {
   const res = await fetch(`${API_BASE_URL}/competitors`);
@@ -23,12 +49,44 @@ export async function fetchCompetitor(id: string): Promise<CompetitorDetailRespo
   return res.json();
 }
 
+export async function createCompetitor(payload: CreateCompetitorPayload): Promise<CreateCompetitorResponse> {
+  const res = await fetch(`${API_BASE_URL}/competitors`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(
+      errorData?.error?.message || `Failed to track competitor: HTTP ${res.status}`,
+    );
+  }
+
+  return res.json();
+}
+
+export async function triggerSourceMonitor(sourceId: string): Promise<unknown> {
+  const res = await fetch(`${API_BASE_URL}/sources/${sourceId}/monitor`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(
+      errorData?.error?.message || `Monitoring failed with HTTP ${res.status}`,
+    );
+  }
+  return res.json();
+}
+
 export async function triggerSourceRun(sourceId: string): Promise<unknown> {
   const res = await fetch(`${API_BASE_URL}/sources/${sourceId}/run`, {
     method: "POST",
   });
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
+    const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
     throw new Error(
       errorData?.error?.message || `Source execution failed with HTTP ${res.status}`,
     );
@@ -41,7 +99,7 @@ export async function triggerDebugLumoraRun(): Promise<unknown> {
     method: "POST",
   });
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
+    const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
     throw new Error(
       errorData?.error?.message || `Lumora debug run failed with HTTP ${res.status}`,
     );

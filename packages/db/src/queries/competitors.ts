@@ -5,6 +5,8 @@ import {
   type Competitor,
   type NewCompetitor,
 } from "../schema/competitors.ts";
+import { upsertSource } from "./sources.ts";
+import type { Source } from "../schema/sources.ts";
 
 export async function getCompetitors(db: Database): Promise<Competitor[]> {
   return db.select().from(competitors);
@@ -63,4 +65,46 @@ export async function upsertCompetitor(
   }
 
   return createCompetitor(db, data);
+}
+
+export interface CreateCompetitorWithSourceInput {
+  name: string;
+  domain: string;
+  source: {
+    name: string;
+    url: string;
+    type: "homepage" | "pricing" | string;
+    collectorId: string;
+    intervalMinutes?: number;
+  };
+}
+
+export interface CreateCompetitorWithSourceResult {
+  competitor: Competitor;
+  source: Source;
+}
+
+/**
+ * Persists a competitor and its primary monitoring source.
+ */
+export async function createCompetitorWithSource(
+  db: Database,
+  input: CreateCompetitorWithSourceInput,
+): Promise<CreateCompetitorWithSourceResult> {
+  const competitor = await upsertCompetitor(db, {
+    name: input.name,
+    domain: input.domain,
+  });
+
+  const source = await upsertSource(db, {
+    competitorId: competitor.id,
+    name: input.source.name,
+    url: input.source.url,
+    type: input.source.type as Source["type"],
+    collectorId: input.source.collectorId,
+    health: "healthy",
+    nextRunAt: new Date(),
+  });
+
+  return { competitor, source };
 }
