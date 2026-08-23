@@ -36,7 +36,7 @@ function CompetitorDetailPage() {
           <Skeleton className="h-9 w-28" />
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="rounded-none border border-border bg-card p-6 space-y-4">
           <Skeleton className="h-5 w-36" />
           <Skeleton className="h-7 w-3/4" />
           <Skeleton className="h-6 w-1/2" />
@@ -46,15 +46,15 @@ function CompetitorDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-6 space-y-3">
+        <div className="rounded-none border border-border bg-card p-6 space-y-3">
           <Skeleton className="h-5 w-24" />
           <Skeleton className="h-10 w-full" />
         </div>
 
         <div className="space-y-4">
           <Skeleton className="h-5 w-36" />
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-none" />
+          <Skeleton className="h-28 w-full rounded-none" />
         </div>
       </div>
     );

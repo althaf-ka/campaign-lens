@@ -47,7 +47,7 @@ export function CurrentCampaignCard({ snapshot }: CurrentCampaignProps) {
 
           {snapshot.offer && (
             <div>
-              <div className="inline-flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3.5 py-1.5 text-sm font-semibold text-primary">
+              <div className="inline-flex items-center gap-2 rounded-none bg-primary/10 border border-primary/20 px-3.5 py-1.5 text-sm font-semibold text-primary">
                 <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} className="size-4 text-primary shrink-0" />
                 <span>{snapshot.offer}</span>
               </div>
