@@ -8,10 +8,8 @@ import {
 } from "@campaign-lens/ui/components/sheet";
 import { Badge } from "@campaign-lens/ui/components/badge";
 import { Skeleton } from "@campaign-lens/ui/components/skeleton";
-import { Separator } from "@campaign-lens/ui/components/separator";
-import { Card, CardContent } from "@campaign-lens/ui/components/card";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowRight01Icon, Tag01Icon, CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
+import { CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
 import { eventComparisonQueryOptions } from "../api/competitor.queries.ts";
 
 interface SnapshotComparisonDialogProps {
@@ -51,8 +49,8 @@ export function SnapshotComparisonDialog({
         side="right"
         className="w-full sm:max-w-2xl overflow-y-auto p-0 flex flex-col bg-background"
       >
-        <SheetHeader className="p-6 pb-4 border-b border-border/60 bg-muted/20">
-          <div className="flex items-center justify-between gap-4">
+        <SheetHeader className="p-4 sm:p-6 pb-4 border-b border-border/60 bg-muted/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <SheetTitle className="text-lg font-bold text-foreground">
                 Campaign Comparison
@@ -62,21 +60,24 @@ export function SnapshotComparisonDialog({
               </SheetDescription>
             </div>
             {event && (
-              <Badge variant="outline" className="text-primary border-primary/30 bg-primary/10 font-mono text-xs">
+              <Badge
+                variant="outline"
+                className="text-primary border-primary/30 bg-primary/10 font-mono text-xs self-start sm:self-auto"
+              >
                 {formatEventBadge(event.type)}
               </Badge>
             )}
           </div>
         </SheetHeader>
 
-        <div className="p-6 space-y-6 flex-1">
+        <div className="p-4 sm:p-6 space-y-6 flex-1">
           {isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-24 w-full rounded-none" />
               <Skeleton className="h-24 w-full rounded-none" />
               <Skeleton className="h-24 w-full rounded-none" />
             </div>
-          ) : error || !data ? (
+          ) : error || !data || !after ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
               Failed to load comparison data.
             </div>
@@ -103,12 +104,14 @@ export function SnapshotComparisonDialog({
                 label="Price"
                 isChanged={changedFields.has("price_changed")}
                 before={
-                  before?.pricing.amount !== null && before?.pricing.amount !== undefined
+                  before?.pricing.amount !== null &&
+                  before?.pricing.amount !== undefined
                     ? `₹${before.pricing.amount.toLocaleString()} ${before.pricing.qualifier ? `(${before.pricing.qualifier})` : ""}`
                     : null
                 }
                 after={
-                  after.pricing.amount !== null && after.pricing.amount !== undefined
+                  after.pricing.amount !== null &&
+                  after.pricing.amount !== undefined
                     ? `₹${after.pricing.amount.toLocaleString()} ${after.pricing.qualifier ? `(${after.pricing.qualifier})` : ""}`
                     : null
                 }
@@ -137,7 +140,10 @@ export function SnapshotComparisonDialog({
                     Guarantees
                   </span>
                   {changedFields.has("guarantees_changed") && (
-                    <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary bg-primary/10">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-mono border-primary/40 text-primary bg-primary/10"
+                    >
                       Changed
                     </Badge>
                   )}
@@ -158,7 +164,9 @@ export function SnapshotComparisonDialog({
                         ))}
                       </ul>
                     ) : (
-                      <span className="text-xs text-muted-foreground/60 italic">Not detected</span>
+                      <span className="text-xs text-muted-foreground/60 italic">
+                        Not detected
+                      </span>
                     )}
                   </div>
 
@@ -170,13 +178,19 @@ export function SnapshotComparisonDialog({
                       <ul className="space-y-1 text-xs text-foreground">
                         {after.guarantees.map((g, i) => (
                           <li key={i} className="flex items-center gap-1.5">
-                            <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3 text-emerald-500 shrink-0" />
+                            <HugeiconsIcon
+                              icon={CheckmarkCircle01Icon}
+                              strokeWidth={2}
+                              className="size-3 text-emerald-500 shrink-0"
+                            />
                             <span>{g}</span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <span className="text-xs text-muted-foreground/60 italic">Not detected</span>
+                      <span className="text-xs text-muted-foreground/60 italic">
+                        Not detected
+                      </span>
                     )}
                   </div>
                 </div>
@@ -220,18 +234,22 @@ function ComparisonField({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Before */}
-        <div className="p-3 border border-border/60 bg-muted/10 space-y-1">
+        <div className="p-3 border border-border/60 bg-muted/10 space-y-1 overflow-hidden">
           <span className="text-[11px] font-mono text-muted-foreground uppercase block">
             Before
           </span>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {before ?? <span className="italic text-muted-foreground/60">Not detected</span>}
+          <p className="text-xs text-muted-foreground leading-relaxed break-words">
+            {before ?? (
+              <span className="italic text-muted-foreground/60">
+                Not detected
+              </span>
+            )}
           </p>
         </div>
 
         {/* After */}
         <div
-          className={`p-3 border space-y-1 ${
+          className={`p-3 border space-y-1 overflow-hidden ${
             isChanged
               ? "border-primary/40 bg-primary/5"
               : "border-border/60 bg-muted/20"
@@ -240,8 +258,12 @@ function ComparisonField({
           <span className="text-[11px] font-mono text-foreground font-semibold uppercase block">
             After
           </span>
-          <p className="text-xs font-medium text-foreground leading-relaxed">
-            {after ?? <span className="italic text-muted-foreground/60">Not detected</span>}
+          <p className="text-xs font-medium text-foreground leading-relaxed break-words">
+            {after ?? (
+              <span className="italic text-muted-foreground/60">
+                Not detected
+              </span>
+            )}
           </p>
         </div>
       </div>

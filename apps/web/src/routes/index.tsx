@@ -1,11 +1,22 @@
 import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@campaign-lens/ui/components/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@campaign-lens/ui/components/card";
 import { Badge } from "@campaign-lens/ui/components/badge";
 import { Button } from "@campaign-lens/ui/components/button";
 import { Skeleton } from "@campaign-lens/ui/components/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@campaign-lens/ui/components/alert";
 import { Separator } from "@campaign-lens/ui/components/separator";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -14,7 +25,6 @@ import {
   ArrowRight01Icon,
   AlertCircleIcon,
   CheckmarkCircle01Icon,
-  Tag01Icon,
   ArrowUp01Icon,
   ArrowDown01Icon,
   PlusSignIcon,
@@ -30,10 +40,22 @@ export const Route = createFileRoute("/")({
 });
 
 function OverviewPage() {
-  const { data: compData, isLoading: compLoading, error: compError, refetch: refetchComp } = useQuery(competitorsQueryOptions());
-  const { data: attData, isLoading: attLoading, error: attError, refetch: refetchAtt } = useQuery(attentionQueryOptions());
+  const {
+    data: compData,
+    isLoading: compLoading,
+    error: compError,
+    refetch: refetchComp,
+  } = useQuery(competitorsQueryOptions());
+  const {
+    data: attData,
+    isLoading: attLoading,
+    error: attError,
+    refetch: refetchAtt,
+  } = useQuery(attentionQueryOptions());
 
-  const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = React.useState<string | null>(
+    null,
+  );
   const [comparisonOpen, setComparisonOpen] = React.useState(false);
 
   const competitors = compData?.competitors ?? [];
@@ -67,9 +89,14 @@ function OverviewPage() {
             variant="outline"
             size="sm"
             onClick={handleRefreshAll}
+            aria-label="Refresh overview data"
             className="gap-1.5 text-xs cursor-pointer"
           >
-            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
+            <HugeiconsIcon
+              icon={RefreshIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
             <span>Refresh</span>
           </Button>
 
@@ -78,7 +105,11 @@ function OverviewPage() {
             render={<Link to="/competitors/new" />}
             className="gap-1.5 text-xs cursor-pointer"
           >
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
+            <HugeiconsIcon
+              icon={PlusSignIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
             <span>Track competitor</span>
           </Button>
         </div>
@@ -94,7 +125,10 @@ function OverviewPage() {
               Needs attention
             </h2>
             {attentionItems.length > 0 && (
-              <Badge variant="secondary" className="text-xs font-mono">
+              <Badge
+                variant="secondary"
+                className="text-xs font-mono tabular-nums"
+              >
                 {attentionItems.length}
               </Badge>
             )}
@@ -108,20 +142,31 @@ function OverviewPage() {
           </div>
         ) : attError ? (
           <Alert variant="destructive">
-            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={AlertCircleIcon}
+              strokeWidth={2}
+              className="size-4"
+            />
             <AlertTitle>Failed to load attention stream</AlertTitle>
             <AlertDescription className="text-xs mt-1">
-              {attError instanceof Error ? attError.message : "Unable to reach attention service."}
+              {attError instanceof Error
+                ? attError.message
+                : "Unable to reach attention service."}
             </AlertDescription>
           </Alert>
         ) : attentionItems.length === 0 ? (
           <Card className="border-dashed p-8 text-center bg-muted/10">
             <div className="mx-auto size-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-2">
-              <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-4 text-emerald-400" />
+              <HugeiconsIcon
+                icon={CheckmarkCircle01Icon}
+                strokeWidth={2}
+                className="size-4 text-emerald-400"
+              />
             </div>
             <h4 className="text-sm font-medium text-foreground">All Clear</h4>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              No recent price shifts or degraded sources detected across your tracked competitors.
+              No recent price shifts or degraded sources detected across your
+              tracked competitors.
             </p>
           </Card>
         ) : (
@@ -159,23 +204,40 @@ function OverviewPage() {
           </div>
         ) : compError ? (
           <Alert variant="destructive">
-            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={AlertCircleIcon}
+              strokeWidth={2}
+              className="size-4"
+            />
             <AlertTitle>Failed to load competitors</AlertTitle>
             <AlertDescription className="text-xs mt-1">
-              {compError instanceof Error ? compError.message : "Failed to load competitors."}
+              {compError instanceof Error
+                ? compError.message
+                : "Failed to load competitors."}
             </AlertDescription>
           </Alert>
         ) : competitors.length === 0 ? (
           <Card className="border-dashed p-10 text-center bg-muted/20">
             <div className="mx-auto size-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-3">
-              <HugeiconsIcon icon={Store01Icon} strokeWidth={2} className="size-5" />
+              <HugeiconsIcon
+                icon={Store01Icon}
+                strokeWidth={2}
+                className="size-5"
+              />
             </div>
-            <h3 className="text-base font-semibold text-foreground">No Competitors Tracked</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              No Competitors Tracked
+            </h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Start tracking a competitor to monitor promotional campaigns and price shifts.
+              Start tracking a competitor to monitor promotional campaigns and
+              price shifts.
             </p>
             <div className="mt-4">
-              <Button size="sm" render={<Link to="/competitors/new" />} className="text-xs">
+              <Button
+                size="sm"
+                render={<Link to="/competitors/new" />}
+                className="text-xs"
+              >
                 Track competitor
               </Button>
             </div>
@@ -202,38 +264,45 @@ function OverviewPage() {
                       variant="outline"
                       className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1 text-xs self-start sm:self-auto"
                     >
-                      <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3 text-emerald-400" />
+                      <HugeiconsIcon
+                        icon={CheckmarkCircle01Icon}
+                        strokeWidth={2}
+                        className="size-3 text-emerald-400"
+                      />
                       <span>Verified baseline</span>
                     </Badge>
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-1 py-1">
-                  <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
-                    <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} className="size-3.5" />
-                    <span>Free Pro Upgrade with every Starter Kit</span>
-                  </div>
+                <CardContent className="py-1">
+                  <p className="text-xs text-muted-foreground">
+                    Campaign and pricing changes are monitored from the
+                    competitor&apos;s public pages.
+                  </p>
                 </CardContent>
 
                 <CardFooter className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-3">
-                    <span className="text-base font-bold text-foreground tabular-nums">
-                      ₹2,299
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="text-muted-foreground text-xs">
-                      Starter Kit
-                    </span>
-                  </div>
+                  <span className="text-muted-foreground font-mono break-all">
+                    {comp.domain}
+                  </span>
 
                   <Button
                     variant="outline"
                     size="sm"
-                    render={<Link to="/competitors/$competitorId" params={{ competitorId: comp.id }} />}
+                    render={
+                      <Link
+                        to="/competitors/$competitorId"
+                        params={{ competitorId: comp.id }}
+                      />
+                    }
                     className="gap-1.5 text-xs w-full sm:w-auto cursor-pointer"
                   >
                     <span>View competitor</span>
-                    <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      strokeWidth={2}
+                      className="size-3.5"
+                    />
                   </Button>
                 </CardFooter>
               </Card>
@@ -285,7 +354,11 @@ function AttentionCard({
               variant="outline"
               className="text-[11px] font-mono border-primary/30 text-primary bg-primary/10"
             >
-              {isPrice ? "Price changed" : isOffer ? "Offer changed" : "Campaign changed"}
+              {isPrice
+                ? "Price changed"
+                : isOffer
+                  ? "Offer changed"
+                  : "Campaign changed"}
             </Badge>
             <span className="text-[11px] text-muted-foreground font-mono ml-auto sm:ml-0">
               {formattedDate} · {formattedTime}
@@ -293,9 +366,7 @@ function AttentionCard({
           </div>
 
           <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">
-              {item.title}
-            </p>
+            <p className="text-sm font-medium text-foreground">{item.title}</p>
 
             {isPrice && item.metric && (
               <div className="flex items-center gap-2 pt-0.5">
@@ -308,7 +379,9 @@ function AttentionCard({
                   }`}
                 >
                   <HugeiconsIcon
-                    icon={item.metric.isIncrease ? ArrowUp01Icon : ArrowDown01Icon}
+                    icon={
+                      item.metric.isIncrease ? ArrowUp01Icon : ArrowDown01Icon
+                    }
                     strokeWidth={2}
                     className="size-3"
                   />
@@ -322,10 +395,19 @@ function AttentionCard({
             {isOffer && (
               <div className="text-xs text-muted-foreground space-y-0.5 pt-0.5">
                 <p className="line-through text-muted-foreground/70">
-                  {String((item.before as Record<string, unknown>)?.value ?? item.before ?? "")}
+                  {String(
+                    (item.before as Record<string, unknown>)?.value ??
+                      item.before ??
+                      "",
+                  )}
                 </p>
                 <p className="text-foreground font-medium">
-                  → {String((item.after as Record<string, unknown>)?.value ?? item.after ?? "")}
+                  →{" "}
+                  {String(
+                    (item.after as Record<string, unknown>)?.value ??
+                      item.after ??
+                      "",
+                  )}
                 </p>
               </div>
             )}
@@ -367,9 +449,7 @@ function AttentionCard({
           </span>
         </div>
 
-        <p className="text-xs font-semibold text-foreground">
-          {item.title}
-        </p>
+        <p className="text-xs font-semibold text-foreground">{item.title}</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
           {item.summary}
         </p>
@@ -379,11 +459,20 @@ function AttentionCard({
         <Button
           variant="outline"
           size="sm"
-          render={<Link to="/competitors/$competitorId" params={{ competitorId: item.competitorId }} />}
+          render={
+            <Link
+              to="/competitors/$competitorId"
+              params={{ competitorId: item.competitorId }}
+            />
+          }
           className="text-xs gap-1.5 cursor-pointer h-8"
         >
           <span>View competitor</span>
-          <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
+            strokeWidth={2}
+            className="size-3"
+          />
         </Button>
       </div>
     </div>

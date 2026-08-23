@@ -8,13 +8,16 @@ import {
   ArrowLeft01Icon,
   ArrowDown01Icon,
   ArrowUp01Icon,
-  Settings01Icon,
+  CpuIcon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@campaign-lens/ui/components/button";
 import { Badge } from "@campaign-lens/ui/components/badge";
 import { Skeleton } from "@campaign-lens/ui/components/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
-import { Card, CardHeader, CardTitle, CardContent } from "@campaign-lens/ui/components/card";
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@campaign-lens/ui/components/alert";
 import { competitorQueryOptions } from "../../features/competitors/api/competitor.queries.ts";
 import { CompetitorHeader } from "../../features/competitors/components/competitor-header.tsx";
 import { CurrentCampaignCard } from "../../features/competitors/components/current-campaign.tsx";
@@ -61,16 +64,31 @@ function CompetitorDetailPage() {
     return (
       <div className="py-12 space-y-4 max-w-lg mx-auto">
         <Alert variant="destructive">
-          <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-4" />
+          <HugeiconsIcon
+            icon={AlertCircleIcon}
+            strokeWidth={2}
+            className="size-4"
+          />
           <AlertTitle>Failed to load competitor</AlertTitle>
           <AlertDescription className="mt-1 text-xs">
-            {error instanceof Error ? error.message : "An unexpected error occurred while fetching competitor intelligence."}
+            {error instanceof Error
+              ? error.message
+              : "An unexpected error occurred while fetching competitor intelligence."}
           </AlertDescription>
         </Alert>
 
         <div className="flex items-center justify-center gap-3 pt-2">
-          <Button variant="outline" size="sm" render={<Link to="/competitors" />} className="gap-1.5 text-xs">
-            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link to="/competitors" />}
+            className="gap-1.5 text-xs"
+          >
+            <HugeiconsIcon
+              icon={ArrowLeft01Icon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
             <span>Back to Competitors</span>
           </Button>
           <Button
@@ -79,7 +97,11 @@ function CompetitorDetailPage() {
             onClick={() => refetch()}
             className="cursor-pointer gap-1.5 text-xs"
           >
-            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
+            <HugeiconsIcon
+              icon={RefreshIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
             <span>Retry</span>
           </Button>
         </div>
@@ -103,41 +125,63 @@ function CompetitorDetailPage() {
       <CampaignTimeline events={events} sources={sources} />
 
       {/* 4. Collapsible System Health & Technical Details */}
-      <div className="pt-4 border-t border-border/60 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              System health
-            </span>
-            <Badge
-              variant="outline"
-              className={`text-[10px] font-mono ${
-                isDegraded
-                  ? "border-amber-500/30 text-amber-400 bg-amber-500/10"
-                  : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-              }`}
-            >
-              {isDegraded ? "Monitoring degraded · Self-healing queued" : "Monitoring active"}
-            </Badge>
+      <div className="pt-6 border-t border-border space-y-4">
+        <div className="flex items-center justify-between gap-3 p-3.5 sm:p-4 bg-card border border-border">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="size-8 rounded-none bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+              <HugeiconsIcon icon={CpuIcon} strokeWidth={2} className="size-4" />
+            </div>
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-foreground">
+                  Scraper Health
+                </span>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-mono shrink-0 ${
+                    isDegraded
+                      ? "border-amber-500/30 text-amber-400 bg-amber-500/10"
+                      : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                  }`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full mr-1.5 inline-block ${
+                      isDegraded ? "bg-amber-400" : "bg-emerald-400"
+                    } motion-safe:animate-pulse`}
+                  />
+                  <span>{isDegraded ? "Self-Healing" : "Active & Verified"}</span>
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground truncate hidden xs:block">
+                Bright Data Scraper Studio collector telemetry
+              </p>
+            </div>
           </div>
 
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
-            className="text-xs text-muted-foreground hover:text-foreground gap-1.5 h-7 cursor-pointer"
+            className="text-xs gap-1.5 h-8 px-2.5 sm:px-3 cursor-pointer shrink-0"
           >
             <HugeiconsIcon
               icon={showTechnicalDetails ? ArrowUp01Icon : ArrowDown01Icon}
               strokeWidth={2}
-              className="size-3"
+              className="size-3 text-muted-foreground"
             />
-            <span>{showTechnicalDetails ? "Hide technical details" : "View technical details"}</span>
+            <span className="hidden sm:inline">
+              {showTechnicalDetails
+                ? "Hide technical details"
+                : "View technical details"}
+            </span>
+            <span className="inline sm:hidden">
+              {showTechnicalDetails ? "Hide" : "Details"}
+            </span>
           </Button>
         </div>
 
         {showTechnicalDetails && (
-          <div className="space-y-4 pt-2">
+          <div className="space-y-4 pt-1">
             <SourceList sources={sources} />
           </div>
         )}

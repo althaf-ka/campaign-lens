@@ -151,8 +151,8 @@ export function CampaignEvent({ event, sourceName }: CampaignEventProps) {
   return (
     <>
       <Card className="bg-card hover:border-border transition-colors">
-        <CardHeader className="py-3 px-5 flex flex-row items-center justify-between space-y-0 border-b border-border/60">
-          <div className="flex items-center gap-2">
+        <CardHeader className="py-3 px-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 space-y-0 border-b border-border/60">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={badgeInfo.variant} className={badgeInfo.className}>
               {badgeInfo.icon}
               <span>{badgeInfo.label}</span>
@@ -162,7 +162,7 @@ export function CampaignEvent({ event, sourceName }: CampaignEventProps) {
             </span>
           </div>
 
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground font-mono">
             {formattedDate} · {formattedTime}
           </div>
         </CardHeader>

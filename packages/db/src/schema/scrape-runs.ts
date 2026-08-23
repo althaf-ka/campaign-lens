@@ -2,12 +2,15 @@ import { pgTable, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
 import { sources } from "./sources.ts";
 
 export const scrapeRunStatuses = [
+  "collecting",
+  "processing",
   "running",
   "succeeded",
   "invalid",
   "failed",
   "healing",
 ] as const;
+
 export type ScrapeRunStatus = (typeof scrapeRunStatuses)[number];
 
 export const scrapeRuns = pgTable(
@@ -30,6 +33,7 @@ export const scrapeRuns = pgTable(
       table.sourceId,
       table.startedAt,
     ),
+    index("scrape_runs_status_idx").on(table.status),
   ],
 );
 

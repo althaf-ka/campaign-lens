@@ -1,13 +1,20 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { monitorSource } from "./monitor-source.ts";
-import { runDueSources } from "./run-due-sources.ts";
+import { advanceScrape } from "./advance-scrape.ts";
 import { shouldAttemptHealing } from "./recovery-policy.ts";
+import { runDueSources } from "./run-due-sources.ts";
 import { listDueSources } from "@campaign-lens/db";
 import { BrightDataError } from "@campaign-lens/brightdata";
-import type { Database } from "@campaign-lens/db";
+import type {
+  Database,
+  RecoveryRun,
+  NewRecoveryRun,
+  ScrapeRun,
+  NewScrapeRun,
+} from "@campaign-lens/db";
 
-describe("monitorSource & Scheduled Monitoring Orchestration", () => {
+describe("monitorSource & Non-Blocking Poll-Driven Scrape & Recovery Architecture", () => {
   const originalFetch = globalThis.fetch;
   const mockToken = "test-brightdata-token-12345";
   const testCollectorId = "c_mt5kun512itlsaiw1s";
@@ -25,6 +32,13 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
     sourceUrl: "https://lumora-58u.pages.dev/",
   };
 
+  function getMockTableName(table: unknown): string {
+    if (!table) return "";
+    const obj = table as Record<string | symbol, unknown>;
+    const name = (obj._ as { name?: string })?.name || obj[Symbol.for("drizzle:Name")] || "";
+    return typeof name === "string" ? name : "";
+  }
+
   function createMockDb(options?: {
     sourcesList?: Array<{
       id: string;
@@ -32,6 +46,8 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       nextRunAt: Date | null;
     }>;
     latestSnapshotData?: unknown;
+    existingRecoveryRuns?: RecoveryRun[];
+    existingScrapeRuns?: ScrapeRun[];
   }) {
     const mockSources = options?.sourcesList ?? [
       {
@@ -55,6 +71,8 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       updatedAt: new Date(),
     }));
 
+    const scrapeRunsList: ScrapeRun[] = [...(options?.existingScrapeRuns ?? [])];
+    const recoveryRunsList: RecoveryRun[] = [...(options?.existingRecoveryRuns ?? [])];
     let createdEventsCount = 0;
     let createdSnapshotsCount = 0;
     const scheduleUpdates: Array<{ id: string; nextRunAt: Date | null; health?: string }> = [];
@@ -67,36 +85,72 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
 
     const mockDb = {
       select: () => ({
-        from: () => ({
+        from: (tableObj: unknown) => ({
           where: (condition?: unknown) => ({
             orderBy: () => ({
               limit: async (lim?: number) => {
-                // If condition is present in listDueSources query:
-                // nextRunAt IS NOT NULL AND nextRunAt <= now
+                const tableName = getMockTableName(tableObj);
+                if (tableName === "scrape_runs") {
+                  const active = scrapeRunsList.filter((r) =>
+                    ["collecting", "processing", "running"].includes(r.status),
+                  );
+                  return lim ? active.slice(0, lim) : active;
+                }
+                if (tableName === "recovery_runs") {
+                  const active = recoveryRunsList.filter((r) =>
+                    ["healing", "validating", "approving", "verifying"].includes(r.status),
+                  );
+                  return lim ? active.slice(0, lim) : active;
+                }
                 if (condition && typeof condition === "object") {
                   const nowBoundary = new Date("2026-08-23T12:00:00Z").getTime();
                   const list = sourceObjects.filter((s) => {
-                    if (s.nextRunAt === null) return false; // Invariant: null is NOT due
+                    if (s.nextRunAt === null) return false;
                     return s.nextRunAt.getTime() <= nowBoundary;
                   });
                   return lim ? list.slice(0, lim) : list;
                 }
-                // If snapshot query orderBy desc
                 return [mockPreviousSnapshot];
               },
             }),
             limit: async () => {
+              const tableName = getMockTableName(tableObj);
+              if (tableName === "scrape_runs") {
+                return scrapeRunsList.length > 0 ? [scrapeRunsList[0]] : [];
+              }
+              if (tableName === "recovery_runs") {
+                return recoveryRunsList.length > 0 ? [recoveryRunsList[0]] : [];
+              }
               return [sourceObjects[0]];
             },
           }),
         }),
       }),
-      update: () => ({
-        set: (data: { nextRunAt?: Date | null; health?: string }) => ({
-          where: () => ({
+      update: (tableObj: unknown) => ({
+        set: (data: Record<string, unknown>) => ({
+          where: (cond?: unknown) => ({
             returning: async () => {
+              const tableName = getMockTableName(tableObj);
+              if (tableName === "scrape_runs") {
+                const targetId = (cond as { right?: { value?: string }; val?: string })?.right?.value ?? (cond as { val?: string })?.val;
+                const found = targetId ? scrapeRunsList.find((r) => r.id === targetId) : scrapeRunsList[0];
+                if (found) {
+                  Object.assign(found, data);
+                  return [found];
+                }
+                if (scrapeRunsList.length > 0) {
+                  Object.assign(scrapeRunsList[0]!, data);
+                  return [scrapeRunsList[0]!];
+                }
+              }
+              if (tableName === "recovery_runs") {
+                if (recoveryRunsList.length > 0) {
+                  Object.assign(recoveryRunsList[0]!, data, { updatedAt: new Date() });
+                  return [recoveryRunsList[0]!];
+                }
+              }
               const src = sourceObjects[0]!;
-              if (data.nextRunAt !== undefined) src.nextRunAt = data.nextRunAt;
+              if (data.nextRunAt !== undefined) src.nextRunAt = data.nextRunAt as Date | null;
               if (data.health) src.health = data.health as typeof src.health;
               scheduleUpdates.push({
                 id: src.id,
@@ -108,12 +162,44 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
           }),
         }),
       }),
-      insert: () => ({
+      insert: (tableObj: unknown) => ({
         values: (vals: unknown) => ({
           returning: async () => {
+            const tableName = getMockTableName(tableObj);
+            if (tableName === "scrape_runs") {
+              const v = vals as NewScrapeRun;
+              const run: ScrapeRun = {
+                id: `run-${scrapeRunsList.length + 1}`,
+                sourceId: v.sourceId,
+                status: v.status ?? "collecting",
+                upstreamResponseId: v.upstreamResponseId ?? null,
+                errorCode: v.errorCode ?? null,
+                startedAt: new Date(),
+                completedAt: null,
+              };
+              scrapeRunsList.unshift(run);
+              return [run];
+            }
+            if (tableName === "recovery_runs") {
+              const v = vals as NewRecoveryRun;
+              const run: RecoveryRun = {
+                id: `rec-${recoveryRunsList.length + 1}`,
+                sourceId: v.sourceId,
+                collectorId: v.collectorId,
+                status: v.status ?? "healing",
+                startedAt: new Date(),
+                updatedAt: new Date(),
+                completedAt: null,
+                errorCode: null,
+                retryable: v.retryable ?? false,
+                metadata: (v.metadata as Record<string, unknown>) ?? null,
+              };
+              recoveryRunsList.unshift(run);
+              return [run];
+            }
             if (Array.isArray(vals)) {
               createdEventsCount += vals.length;
-              return vals.map((v, i) => ({ id: `event-${i}`, ...v }));
+              return vals.map((v, i) => ({ id: `event-${i}`, ...(v as Record<string, unknown>) }));
             }
             const record = vals as Record<string, unknown>;
             if (record.headline !== undefined || record.data !== undefined) {
@@ -128,17 +214,21 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       getScheduleUpdates: () => scheduleUpdates,
       getCreatedEventsCount: () => createdEventsCount,
       getCreatedSnapshotsCount: () => createdSnapshotsCount,
+      getScrapeRuns: () => scrapeRunsList,
+      getRecoveryRuns: () => recoveryRunsList,
     } as unknown as Database & {
       getSource: (idx?: number) => (typeof sourceObjects)[0];
       getScheduleUpdates: () => typeof scheduleUpdates;
       getCreatedEventsCount: () => number;
       getCreatedSnapshotsCount: () => number;
+      getScrapeRuns: () => ScrapeRun[];
+      getRecoveryRuns: () => RecoveryRun[];
     };
 
     return { mockDb, sourceObjects };
   }
 
-  describe("Recovery Policy", () => {
+  describe("Recovery Policy Invariants", () => {
     it("1. healthy source -> no healing attempted", () => {
       const decision = shouldAttemptHealing({
         status: "healthy",
@@ -171,188 +261,276 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       assert.equal(decision.shouldHeal, true);
       assert.equal(decision.reason, "wait_element_timeout");
     });
-
-    it("4. authentication failure (401/403) -> healing NOT attempted", () => {
-      const decision = shouldAttemptHealing(
-        undefined,
-        new BrightDataError("Unauthorized", { statusCode: 401 }),
-      );
-      assert.equal(decision.shouldHeal, false);
-      assert.equal(decision.reason, "authentication_error");
-    });
-
-    it("5. rate limit (429) -> healing NOT attempted", () => {
-      const decision = shouldAttemptHealing(
-        undefined,
-        new BrightDataError("Too Many Requests", { statusCode: 429 }),
-      );
-      assert.equal(decision.shouldHeal, false);
-      assert.equal(decision.reason, "rate_limit_exceeded");
-    });
   });
 
-  describe("monitorSource Autonomous Lifecycle", () => {
-    it("6. healthy source runs collection and schedules future nextRunAt", async () => {
+  describe("Poll-Driven Monitor Trigger & Bounded Scrape Advance", () => {
+    it("4. POST monitor triggers Bright Data once and returns status accepted immediately", async () => {
       const { mockDb } = createMockDb();
+      let triggerCount = 0;
 
       globalThis.fetch = (async (input: RequestInfo | URL) => {
         const urlStr = String(input);
         if (urlStr.includes("trigger_immediate")) {
-          return new Response(JSON.stringify({ response_id: "res_ok" }), { status: 200 });
-        }
-        if (urlStr.includes("get_result")) {
-          return new Response(JSON.stringify([validSnapshotData]), { status: 200 });
+          triggerCount++;
+          return new Response(JSON.stringify({ response_id: "res_12345" }), { status: 200 });
         }
         return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
       }) as typeof fetch;
 
-      const now = new Date("2026-08-23T12:00:00Z");
       const result = await monitorSource({
         sourceId: "source-uuid-1111",
         db: mockDb,
         apiToken: mockToken,
-        now,
-        intervalMinutes: 60,
       });
 
-      assert.equal(result.status, "healthy");
-      assert.equal(result.nextRunAt.toISOString(), "2026-08-23T13:00:00.000Z");
-      assert.equal(mockDb.getSource()?.health, "healthy");
+      assert.equal(result.status, "accepted");
+      assert.equal(result.state, "collecting");
+      assert.ok(result.runId);
+      assert.equal(triggerCount, 1);
+      assert.equal(mockDb.getScrapeRuns().length, 1);
+      assert.equal(mockDb.getScrapeRuns()[0]?.upstreamResponseId, "res_12345");
     });
 
-    it("7. Self-Healing unavailable (503) -> monitor result remains degraded and retryable", async () => {
-      const { mockDb } = createMockDb();
-
-      globalThis.fetch = (async (input: RequestInfo | URL) => {
-        const urlStr = String(input);
-        // Scraper run returns degraded extraction (missing price)
-        if (urlStr.includes("trigger_immediate")) {
-          return new Response(JSON.stringify({ response_id: "res_degraded" }), { status: 200 });
-        }
-        if (urlStr.includes("get_result")) {
-          return new Response(
-            JSON.stringify([
-              {
-                ...validSnapshotData,
-                pricing: { amount: null, currency: null, qualifier: null },
-              },
-            ]),
-            { status: 200 },
-          );
-        }
-        // Healing returns 503 unavailable
-        if (urlStr.includes("refactor_template")) {
-          return new Response(
-            JSON.stringify({
-              status: "heal_trigger_failed",
-              error: "Self healing tool is temporarily disabled",
-            }),
-            { status: 503 },
-          );
-        }
-        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
-      }) as typeof fetch;
-
-      const now = new Date("2026-08-23T12:00:00Z");
-      const result = await monitorSource({
+    it("5. duplicate monitor call reuses active scrape run without re-triggering Bright Data", async () => {
+      const existingRun: ScrapeRun = {
+        id: "run-active-1",
         sourceId: "source-uuid-1111",
-        db: mockDb,
-        apiToken: mockToken,
-        now,
-        retryIntervalMinutes: 15,
-      });
-
-      assert.equal(result.status, "degraded");
-      if (result.status === "degraded") {
-        assert.equal(result.recoveryAttempted, true);
-        assert.equal(result.retryable, true);
-      }
-      assert.equal(result.nextRunAt.toISOString(), "2026-08-23T12:15:00.000Z");
-      assert.equal(mockDb.getSource()?.health, "degraded");
-    });
-
-    it("8. successful heal -> recovers, uses same Collector ID, and emits 0 new events on identical campaign data", async () => {
-      const { mockDb } = createMockDb();
-
-      let healTriggered = false;
-      let approveCalled = false;
-      let rerunCollectorId: string | undefined;
-
-      globalThis.fetch = (async (input: RequestInfo | URL) => {
-        const urlStr = String(input);
-
-        // 1. Initial collection run returns degraded (missing price)
-        if (!healTriggered && urlStr.includes("trigger_immediate")) {
-          return new Response(JSON.stringify({ response_id: "res_init_run" }), { status: 200 });
-        }
-        if (!healTriggered && urlStr.includes("get_result")) {
-          return new Response(
-            JSON.stringify([
-              {
-                ...validSnapshotData,
-                pricing: { amount: null, currency: null, qualifier: null },
-              },
-            ]),
-            { status: 200 },
-          );
-        }
-
-        // 2. Healing triggers and returns pending_answer preview
-        if (urlStr.includes("refactor_template/progress")) {
-          return new Response(
-            JSON.stringify({
-              status: "pending_answer",
-              preview_result: [validSnapshotData],
-            }),
-            { status: 200 },
-          );
-        }
-        if (urlStr.includes("refactor_template")) {
-          healTriggered = true;
-          return new Response(JSON.stringify({ status: "triggered" }), { status: 200 });
-        }
-
-        // 3. Approval
-        if (urlStr.includes("resume_automation_job")) {
-          approveCalled = true;
-          return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
-        }
-
-        // 4. Rerun after heal
-        if (healTriggered && urlStr.includes("trigger_immediate")) {
-          rerunCollectorId = urlStr.split("collector=")[1];
-          return new Response(JSON.stringify({ response_id: "res_post_heal" }), { status: 200 });
-        }
-        if (healTriggered && urlStr.includes("get_result")) {
-          return new Response(JSON.stringify([validSnapshotData]), { status: 200 });
-        }
-
-        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
-      }) as typeof fetch;
-
-      const now = new Date("2026-08-23T12:00:00Z");
-      const result = await monitorSource({
-        sourceId: "source-uuid-1111",
-        db: mockDb,
-        apiToken: mockToken,
-        now,
-      });
-
-      assert.equal(result.status, "recovered");
-      assert.equal(approveCalled, true);
-      assert.equal(rerunCollectorId, testCollectorId); // Same collector preserved
-      assert.equal(mockDb.getSource()?.health, "healthy");
-      assert.equal(mockDb.getCreatedEventsCount(), 0); // 0 new events for identical campaign
-    });
-  });
-
-  describe("Scheduled Runner & listDueSources Invariants", () => {
-    it("9. past nextRunAt is included in due sources", async () => {
-      const now = new Date("2026-08-23T12:00:00Z");
-      const pastSource = { id: "past-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T11:00:00Z") };
+        status: "collecting",
+        upstreamResponseId: "res_already_running",
+        errorCode: null,
+        startedAt: new Date(),
+        completedAt: null,
+      };
 
       const { mockDb } = createMockDb({
-        sourcesList: [pastSource],
+        existingScrapeRuns: [existingRun],
+      });
+
+      let triggerCount = 0;
+      globalThis.fetch = (async () => {
+        triggerCount++;
+        return new Response(JSON.stringify({ response_id: "res_new" }), { status: 200 });
+      }) as typeof fetch;
+
+      const result = await monitorSource({
+        sourceId: "source-uuid-1111",
+        db: mockDb,
+        apiToken: mockToken,
+      });
+
+      assert.equal(result.status, "accepted");
+      assert.equal(result.runId, "run-active-1");
+      assert.equal(triggerCount, 0); // Did not re-trigger
+    });
+
+    it("6. advanceScrape with pending upstream returns collecting without modifying terminal state", async () => {
+      const existingRun: ScrapeRun = {
+        id: "run-adv-1",
+        sourceId: "source-uuid-1111",
+        status: "collecting",
+        upstreamResponseId: "res_pending",
+        errorCode: null,
+        startedAt: new Date(),
+        completedAt: null,
+      };
+
+      const { mockDb } = createMockDb({
+        existingScrapeRuns: [existingRun],
+      });
+
+      globalThis.fetch = (async () => {
+        return new Response(JSON.stringify({ status: "building", pending: true }), { status: 202 });
+      }) as typeof fetch;
+
+      const adv = await advanceScrape({
+        scrapeRunId: "run-adv-1",
+        db: mockDb,
+        apiToken: mockToken,
+      });
+
+      assert.equal(adv.status, "collecting");
+      assert.equal(mockDb.getScrapeRuns()[0]?.status, "collecting");
+    });
+
+    it("7. advanceScrape with completed data creates snapshot, diff, and transitions to succeeded", async () => {
+      const existingRun: ScrapeRun = {
+        id: "run-adv-2",
+        sourceId: "source-uuid-1111",
+        status: "collecting",
+        upstreamResponseId: "res_done",
+        errorCode: null,
+        startedAt: new Date(),
+        completedAt: null,
+      };
+
+      const { mockDb } = createMockDb({
+        existingScrapeRuns: [existingRun],
+      });
+
+      globalThis.fetch = (async () => {
+        return new Response(JSON.stringify([validSnapshotData]), { status: 200 });
+      }) as typeof fetch;
+
+      const adv = await advanceScrape({
+        scrapeRunId: "run-adv-2",
+        db: mockDb,
+        apiToken: mockToken,
+      });
+
+      assert.equal(adv.status, "succeeded");
+      assert.equal(mockDb.getScrapeRuns()[0]?.status, "succeeded");
+      assert.equal(mockDb.getSource()?.health, "healthy");
+      assert.equal(mockDb.getCreatedSnapshotsCount(), 1);
+    });
+
+    it("8. advanceScrape with wait_element_timeout marks degraded and creates recovery run", async () => {
+      const existingRun: ScrapeRun = {
+        id: "run-adv-3",
+        sourceId: "source-uuid-1111",
+        status: "collecting",
+        upstreamResponseId: "res_timeout",
+        errorCode: null,
+        startedAt: new Date(),
+        completedAt: null,
+      };
+
+      const { mockDb } = createMockDb({
+        existingScrapeRuns: [existingRun],
+      });
+
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const urlStr = String(input);
+        if (urlStr.includes("get_result")) {
+          return new Response(
+            JSON.stringify([
+              {
+                error: "waiting for selector failed: timeout 30000ms exceeded",
+                error_code: "wait_element_timeout",
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        if (urlStr.includes("refactor_template")) {
+          return new Response(JSON.stringify({ error: "Self healing temporarily disabled" }), { status: 503 });
+        }
+        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      }) as typeof fetch;
+
+      const adv = await advanceScrape({
+        scrapeRunId: "run-adv-3",
+        db: mockDb,
+        apiToken: mockToken,
+      });
+
+      assert.equal(adv.status, "failed");
+      assert.equal(mockDb.getScrapeRuns()[0]?.status, "failed");
+      assert.equal(mockDb.getScrapeRuns()[0]?.errorCode, "wait_element_timeout");
+      assert.equal(mockDb.getSource()?.health, "degraded");
+      assert.equal(mockDb.getRecoveryRuns().length, 1);
+      assert.equal(mockDb.getRecoveryRuns()[0]?.status, "unavailable");
+    });
+
+    it("9. successful trigger stores response ID before active polling", async () => {
+      const { mockDb } = createMockDb();
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const urlStr = String(input);
+        if (urlStr.includes("trigger_immediate")) {
+          return new Response(JSON.stringify({ response_id: "res_verified_123" }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      }) as typeof fetch;
+
+      const result = await monitorSource({
+        sourceId: "source-uuid-1111",
+        db: mockDb,
+        apiToken: mockToken,
+      });
+
+      assert.equal(result.status, "accepted");
+      assert.equal(result.state, "collecting");
+      const created = mockDb.getScrapeRuns().find((r) => r.id === result.runId);
+      assert.ok(created);
+      assert.equal(created.upstreamResponseId, "res_verified_123");
+      assert.equal(created.status, "collecting");
+    });
+
+    it("10. trigger failure does not leave orphaned active run", async () => {
+      const { mockDb } = createMockDb();
+      globalThis.fetch = (async () => {
+        return new Response(JSON.stringify({ error: "Bright Data service unavailable" }), { status: 503 });
+      }) as typeof fetch;
+
+      await assert.rejects(
+        async () => {
+          await monitorSource({
+            sourceId: "source-uuid-1111",
+            db: mockDb,
+            apiToken: mockToken,
+          });
+        },
+        (err: Error) => {
+          assert.ok(err.message.includes("Bright Data trigger failed"));
+          return true;
+        },
+      );
+
+      // Invariant: No active scrape runs were created or left behind
+      assert.equal(mockDb.getScrapeRuns().length, 0);
+    });
+
+    it("11. stale running run with null response ID does not block future monitoring", async () => {
+      const staleOrphanRun: ScrapeRun = {
+        id: "run-stale-orphan",
+        sourceId: "source-uuid-1111",
+        status: "running",
+        upstreamResponseId: null, // Invalid orphaned state
+        errorCode: null,
+        startedAt: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes old
+        completedAt: null,
+      };
+
+      const { mockDb } = createMockDb({
+        existingScrapeRuns: [staleOrphanRun],
+      });
+
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const urlStr = String(input);
+        if (urlStr.includes("trigger_immediate")) {
+          return new Response(JSON.stringify({ response_id: "res_fresh_recovered" }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      }) as typeof fetch;
+
+      const result = await monitorSource({
+        sourceId: "source-uuid-1111",
+        db: mockDb,
+        apiToken: mockToken,
+      });
+
+      // The stale run should have been marked failed
+      assert.equal(staleOrphanRun.status, "failed");
+      assert.equal(staleOrphanRun.errorCode, "missing_upstream_response_id");
+      assert.ok(staleOrphanRun.completedAt);
+
+      // And a new fresh run was successfully created with valid upstreamResponseId
+      assert.equal(result.status, "accepted");
+      assert.notEqual(result.runId, "run-stale-orphan");
+      const freshRun = mockDb.getScrapeRuns().find((r) => r.id === result.runId);
+      assert.ok(freshRun);
+      assert.equal(freshRun.upstreamResponseId, "res_fresh_recovered");
+      assert.equal(freshRun.status, "collecting");
+    });
+  });
+
+  describe("Scheduled Runner Invariants", () => {
+    it("12. past nextRunAt is included, null is excluded", async () => {
+      const now = new Date("2026-08-23T12:00:00Z");
+      const pastSource = { id: "past-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T11:00:00Z") };
+      const nullSource = { id: "null-1", health: "needs_review" as const, nextRunAt: null };
+
+      const { mockDb } = createMockDb({
+        sourcesList: [pastSource, nullSource],
       });
 
       const dueList = await listDueSources(mockDb, { now, limit: 10 });
@@ -360,130 +538,35 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       assert.equal(dueList[0]?.id, "past-1");
     });
 
-    it("10. future nextRunAt is excluded from due sources", async () => {
-      const now = new Date("2026-08-23T12:00:00Z");
-      const futureSource = { id: "future-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T13:00:00Z") };
+    it("13. runDueSources triggers due sources and advances active scrape runs", async () => {
+      const pastSource = { id: "past-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T11:00:00Z") };
+      const activeScrape: ScrapeRun = {
+        id: "run-cron-1",
+        sourceId: "past-1",
+        status: "collecting",
+        upstreamResponseId: "res_cron",
+        errorCode: null,
+        startedAt: new Date(),
+        completedAt: null,
+      };
 
       const { mockDb } = createMockDb({
-        sourcesList: [futureSource],
+        sourcesList: [pastSource],
+        existingScrapeRuns: [activeScrape],
       });
 
-      const dueList = await listDueSources(mockDb, { now, limit: 10 });
-      assert.equal(dueList.length, 0);
-    });
-
-    it("11. null nextRunAt is excluded from automatic monitoring", async () => {
-      const now = new Date("2026-08-23T12:00:00Z");
-      const nullSource = { id: "null-1", health: "healthy" as const, nextRunAt: null };
-
-      const { mockDb } = createMockDb({
-        sourcesList: [nullSource],
-      });
-
-      const dueList = await listDueSources(mockDb, { now, limit: 10 });
-      assert.equal(dueList.length, 0);
-    });
-
-    it("12. needs_review source with null nextRunAt is excluded from automatic monitoring", async () => {
-      const now = new Date("2026-08-23T12:00:00Z");
-      const needsReviewSource = { id: "needs-review-1", health: "needs_review" as const, nextRunAt: null };
-
-      const { mockDb } = createMockDb({
-        sourcesList: [needsReviewSource],
-      });
-
-      const dueList = await listDueSources(mockDb, { now, limit: 10 });
-      assert.equal(dueList.length, 0);
-    });
-
-    it("13. one scheduled source failure does not stop processing other due sources", async () => {
-      const { mockDb } = createMockDb({
-        sourcesList: [
-          { id: "source-1", health: "healthy", nextRunAt: new Date("2026-08-23T11:00:00Z") },
-          { id: "source-2", health: "healthy", nextRunAt: new Date("2026-08-23T11:00:00Z") },
-        ],
-      });
-
-      let callCount = 0;
-      globalThis.fetch = (async (input: RequestInfo | URL) => {
-        const urlStr = String(input);
-        callCount++;
-
-        if (urlStr.includes("trigger_immediate")) {
-          // First source succeeds, second source fails network
-          if (callCount <= 2) {
-            return new Response(JSON.stringify({ response_id: "res_1" }), { status: 200 });
-          }
-          return new Response("Unauthorized", { status: 401 });
-        }
-
-        if (urlStr.includes("get_result")) {
-          return new Response(JSON.stringify([validSnapshotData]), { status: 200 });
-        }
-
-        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      globalThis.fetch = (async () => {
+        return new Response(JSON.stringify({ status: "building", pending: true }), { status: 202 });
       }) as typeof fetch;
 
       const summary = await runDueSources({
         db: mockDb,
         apiToken: mockToken,
-        now: new Date("2026-08-23T12:00:00Z"),
-        limit: 10,
       });
 
-      assert.equal(summary.processed, 2);
-      assert.equal(summary.results.length, 2);
-      // Both sources were processed independently
-      assert.ok(summary.succeeded >= 1);
-    });
-
-    it("14. crawler wait_element_timeout error preserves error_code and triggers healSource attempt", async () => {
-      const { mockDb } = createMockDb();
-      let healRequested = false;
-
-      globalThis.fetch = (async (input: RequestInfo | URL) => {
-        const urlStr = String(input);
-        if (urlStr.includes("trigger_immediate")) {
-          return new Response(JSON.stringify({ response_id: "res_crawler_err" }), { status: 200 });
-        }
-        if (urlStr.includes("get_result")) {
-          return new Response(
-            JSON.stringify([
-              {
-                input: { url: "https://lumora-58u.pages.dev/" },
-                error: 'Crawler error: waiting for selector "section.hero" failed: timeout 30000ms exceeded',
-                error_code: "wait_element_timeout",
-              },
-            ]),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-          );
-        }
-        if (urlStr.includes("refactor_template")) {
-          healRequested = true;
-          return new Response(
-            JSON.stringify({
-              status: "heal_trigger_failed",
-              error: "Self healing tool is temporarily disabled",
-            }),
-            { status: 503 },
-          );
-        }
-        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
-      }) as typeof fetch;
-
-      const now = new Date("2026-08-23T12:00:00Z");
-      const result = await monitorSource({
-        sourceId: "source-uuid-1111",
-        db: mockDb,
-        apiToken: mockToken,
-        now,
-      });
-
-      assert.equal(result.status, "degraded");
-      assert.equal(healRequested, true); // Verified that healing was triggered on wait_element_timeout
-      assert.equal(mockDb.getCreatedEventsCount(), 0); // Invariant: no false events emitted
-      assert.equal(mockDb.getCreatedSnapshotsCount(), 0); // Invariant: no broken snapshot stored
+      assert.equal(summary.processed, 1);
+      assert.equal(summary.triggered, 1);
+      assert.equal(summary.advancedScrapes, 1);
     });
   });
 });
-

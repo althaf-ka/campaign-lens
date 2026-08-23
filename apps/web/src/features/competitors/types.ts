@@ -1,4 +1,4 @@
-import type { CampaignSnapshot } from "@campaign-lens/domain";
+import type { CampaignSnapshot, ScrapeRunStatus } from "@campaign-lens/domain";
 
 export type SourceHealth = "healthy" | "degraded" | "healing" | "needs_review";
 
@@ -57,4 +57,57 @@ export interface ComparisonResponse {
   before: CampaignSnapshot | null;
   after: CampaignSnapshot;
   changedFields: string[];
+}
+
+export type { ScrapeRunStatus };
+
+export interface ScrapeRunRecord {
+  id: string;
+  sourceId: string;
+  status: ScrapeRunStatus;
+  upstreamResponseId: string | null;
+  errorCode: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface MonitorAcceptedResponse {
+  status: "accepted";
+  runId: string;
+  sourceId: string;
+  state: ScrapeRunStatus;
+  scrapeRun?: ScrapeRunRecord;
+}
+
+export interface ScrapeRunResponse {
+  scrapeRun: ScrapeRunRecord;
+}
+
+export type RecoveryRunStatus =
+  | "healing"
+  | "validating"
+  | "approving"
+  | "verifying"
+  | "recovered"
+  | "unavailable"
+  | "needs_review"
+  | "failed";
+
+export interface RecoveryRunRecord {
+  id: string;
+  sourceId: string;
+  collectorId: string;
+  status: RecoveryRunStatus;
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  errorCode: string | null;
+  retryable: boolean;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface SourceRecoveryResponse {
+  sourceId: string;
+  sourceHealth: SourceHealth;
+  recovery: RecoveryRunRecord | null;
 }

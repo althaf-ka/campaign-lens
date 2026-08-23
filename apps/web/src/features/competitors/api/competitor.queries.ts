@@ -3,6 +3,9 @@ import type {
   CompetitorDetailResponse,
   CompetitorListResponse,
   ComparisonResponse,
+  SourceRecoveryResponse,
+  ScrapeRunResponse,
+  MonitorAcceptedResponse,
 } from "../types.ts";
 import { API_BASE_URL } from "../../../config/api.ts";
 
@@ -86,6 +89,48 @@ export async function fetchEventComparison(eventId: string): Promise<ComparisonR
   return res.json();
 }
 
+export async function fetchSourceRecovery(sourceId: string): Promise<SourceRecoveryResponse> {
+  const res = await fetch(`${API_BASE_URL}/sources/${sourceId}/recovery`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch source recovery: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function advanceSourceRecovery(sourceId: string): Promise<unknown> {
+  const res = await fetch(`${API_BASE_URL}/sources/${sourceId}/recovery/advance`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(
+      errorData?.error?.message || `Failed to advance recovery: HTTP ${res.status}`,
+    );
+  }
+  return res.json();
+}
+
+export async function fetchScrapeRun(runId: string): Promise<ScrapeRunResponse> {
+  const res = await fetch(`${API_BASE_URL}/scrape-runs/${runId}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch scrape run: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function advanceScrapeRun(runId: string): Promise<unknown> {
+  const res = await fetch(`${API_BASE_URL}/scrape-runs/${runId}/advance`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(
+      errorData?.error?.message || `Failed to advance scrape: HTTP ${res.status}`,
+    );
+  }
+  return res.json();
+}
+
 export async function createCompetitor(payload: CreateCompetitorPayload): Promise<CreateCompetitorResponse> {
   const res = await fetch(`${API_BASE_URL}/competitors`, {
     method: "POST",
@@ -126,11 +171,11 @@ export async function testScraperConnection(
   return res.json();
 }
 
-export async function triggerSourceMonitor(sourceId: string): Promise<unknown> {
+export async function triggerSourceMonitor(sourceId: string): Promise<MonitorAcceptedResponse> {
   const res = await fetch(`${API_BASE_URL}/sources/${sourceId}/monitor`, {
     method: "POST",
   });
-  if (!res.ok) {
+  if (!res.ok && res.status !== 202) {
     const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
     throw new Error(
       errorData?.error?.message || `Monitoring failed with HTTP ${res.status}`,
@@ -186,5 +231,22 @@ export function eventComparisonQueryOptions(eventId: string) {
     queryKey: ["event-comparison", eventId],
     queryFn: () => fetchEventComparison(eventId),
     staleTime: 60_000,
+  });
+}
+
+export function scrapeRunQueryOptions(runId: string | null | undefined) {
+  return queryOptions({
+    queryKey: ["scrape-runs", runId],
+    queryFn: () => fetchScrapeRun(runId!),
+    staleTime: 1_000,
+    enabled: Boolean(runId),
+  });
+}
+
+export function sourceRecoveryQueryOptions(sourceId: string) {
+  return queryOptions({
+    queryKey: ["source-recovery", sourceId],
+    queryFn: () => fetchSourceRecovery(sourceId),
+    staleTime: 1_000,
   });
 }

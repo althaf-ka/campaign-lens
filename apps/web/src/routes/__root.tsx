@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  Scripts,
+  createRootRoute,
+} from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   SidebarProvider,
@@ -19,6 +24,10 @@ export const Route = createRootRoute({
       {
         name: "viewport",
         content: "width=device-width, initial-scale=1",
+      },
+      {
+        name: "theme-color",
+        content: "#18181b",
       },
       {
         title: "CampaignLens",
@@ -65,12 +74,21 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <SidebarProvider defaultOpen={true}>
+          <a
+            href="#main-content"
+            className="sr-only fixed left-4 top-4 z-50 bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only"
+          >
+            Skip to content
+          </a>
           <AppSidebar />
           <SidebarInset className="flex flex-col min-h-screen bg-background">
             <AppHeader />
-            <div className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+            <main
+              id="main-content"
+              className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 lg:p-8"
+            >
               <Outlet />
-            </div>
+            </main>
           </SidebarInset>
         </SidebarProvider>
       </TooltipProvider>
@@ -80,7 +98,11 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark bg-background text-foreground">
+    <html
+      lang="en"
+      className="dark bg-background text-foreground"
+      style={{ colorScheme: "dark" }}
+    >
       <head>
         <HeadContent />
       </head>

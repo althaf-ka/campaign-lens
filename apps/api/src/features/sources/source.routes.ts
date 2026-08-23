@@ -8,11 +8,19 @@ import {
   campaignSnapshotSchema,
   evaluateSnapshotIntegrity,
 } from "@campaign-lens/domain";
-import { createDb, seedLumora, getSourceById } from "@campaign-lens/db";
+import {
+  createDb,
+  seedLumora,
+  getSourceById,
+  getLatestRecoveryRunBySourceId,
+  getScrapeRunById,
+} from "@campaign-lens/db";
 
 import { runSource } from "./run-source.ts";
 import { healSource } from "./heal-source.ts";
 import { monitorSource } from "./monitor-source.ts";
+import { advanceRecovery } from "./advance-recovery.ts";
+import { advanceScrape } from "./advance-scrape.ts";
 
 export const sourceRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -339,7 +347,7 @@ sourceRoutes.post("/sources/:id/heal", async (c) => {
 });
 
 /**
- * Triggers high-level autonomous monitoring (runSource -> evaluate -> healSource if degraded).
+ * Initiates asynchronous monitoring: triggers Bright Data collector once and returns HTTP 202 Accepted immediately.
  */
 sourceRoutes.post("/sources/:id/monitor", async (c) => {
   const apiToken = c.env.BRIGHT_DATA_API_TOKEN;
@@ -381,7 +389,10 @@ sourceRoutes.post("/sources/:id/monitor", async (c) => {
       apiToken,
     });
 
-    return c.json(result, 200);
+    c.header("Location", `/scrape-runs/${result.runId}`);
+    c.header("Retry-After", "2");
+
+    return c.json(result, 202);
   } catch (error) {
     console.error("[Source Monitor Error]", error);
     return c.json(
@@ -391,7 +402,212 @@ sourceRoutes.post("/sources/:id/monitor", async (c) => {
           message:
             error instanceof Error
               ? error.message
-              : "An unexpected error occurred during source monitoring.",
+              : "An unexpected error occurred while initiating monitoring.",
+        },
+      },
+      500,
+    );
+  }
+});
+
+/**
+ * Fast read-only endpoint returning the latest execution state for a scrape run.
+ * Has zero side-effects.
+ */
+sourceRoutes.get("/scrape-runs/:id", async (c) => {
+  const databaseUrl = c.env.DATABASE_URL;
+  if (!databaseUrl) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message: "DATABASE_URL is not configured.",
+        },
+      },
+      500,
+    );
+  }
+
+  const runId = c.req.param("id");
+  const db = createDb(databaseUrl);
+
+  const scrapeRun = await getScrapeRunById(db, runId);
+  if (!scrapeRun) {
+    return c.json(
+      {
+        error: {
+          code: "NOT_FOUND",
+          message: `Scrape run '${runId}' was not found.`,
+        },
+      },
+      404,
+    );
+  }
+
+  return c.json({ scrapeRun }, 200);
+});
+
+/**
+ * Bounded advancement endpoint for scrape runs: performs at most one progression step.
+ */
+sourceRoutes.post("/scrape-runs/:id/advance", async (c) => {
+  const apiToken = c.env.BRIGHT_DATA_API_TOKEN;
+  const databaseUrl = c.env.DATABASE_URL;
+
+  if (!apiToken || !databaseUrl) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message:
+            "Worker configuration missing DATABASE_URL or BRIGHT_DATA_API_TOKEN.",
+        },
+      },
+      500,
+    );
+  }
+
+  const runId = c.req.param("id");
+  const db = createDb(databaseUrl);
+
+  try {
+    const existing = await getScrapeRunById(db, runId);
+    if (!existing) {
+      return c.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: `Scrape run '${runId}' was not found.`,
+          },
+        },
+        404,
+      );
+    }
+
+    const result = await advanceScrape({
+      scrapeRunId: runId,
+      db,
+      apiToken,
+    });
+
+    return c.json(result, 200);
+  } catch (error) {
+    console.error("[Scrape Advance Error]", error);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred while advancing scrape.",
+        },
+      },
+      500,
+    );
+  }
+});
+
+/**
+ * Fast read-only endpoint returning the latest recovery execution state for a source.
+ * Has zero side-effects.
+ */
+sourceRoutes.get("/sources/:id/recovery", async (c) => {
+  const databaseUrl = c.env.DATABASE_URL;
+  if (!databaseUrl) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message: "DATABASE_URL is not configured.",
+        },
+      },
+      500,
+    );
+  }
+
+  const sourceId = c.req.param("id");
+  const db = createDb(databaseUrl);
+
+  const existing = await getSourceById(db, sourceId);
+  if (!existing) {
+    return c.json(
+      {
+        error: {
+          code: "NOT_FOUND",
+          message: `Source '${sourceId}' was not found.`,
+        },
+      },
+      404,
+    );
+  }
+
+  const recovery = await getLatestRecoveryRunBySourceId(db, sourceId);
+
+  return c.json(
+    {
+      sourceId: existing.id,
+      sourceHealth: existing.health,
+      recovery: recovery ?? null,
+    },
+    200,
+  );
+});
+
+/**
+ * Bounded advancement endpoint: performs at most one recovery step.
+ */
+sourceRoutes.post("/sources/:id/recovery/advance", async (c) => {
+  const apiToken = c.env.BRIGHT_DATA_API_TOKEN;
+  const databaseUrl = c.env.DATABASE_URL;
+
+  if (!apiToken || !databaseUrl) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message:
+            "Worker configuration missing DATABASE_URL or BRIGHT_DATA_API_TOKEN.",
+        },
+      },
+      500,
+    );
+  }
+
+  const sourceId = c.req.param("id");
+  const db = createDb(databaseUrl);
+
+  try {
+    const existing = await getSourceById(db, sourceId);
+    if (!existing) {
+      return c.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: `Source '${sourceId}' was not found.`,
+          },
+        },
+        404,
+      );
+    }
+
+    const result = await advanceRecovery({
+      sourceId,
+      db,
+      apiToken,
+    });
+
+    return c.json(result, 200);
+  } catch (error) {
+    console.error("[Recovery Advance Error]", error);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred while advancing recovery.",
         },
       },
       500,

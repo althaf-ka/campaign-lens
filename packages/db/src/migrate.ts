@@ -122,6 +122,22 @@ async function runMigration() {
     );
   `;
 
+  // 7. Create recovery_runs table
+  await sql`
+    CREATE TABLE IF NOT EXISTS "recovery_runs" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "source_id" uuid NOT NULL REFERENCES "sources"("id") ON DELETE cascade,
+      "collector_id" text NOT NULL,
+      "status" text DEFAULT 'healing' NOT NULL,
+      "started_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "completed_at" timestamp with time zone,
+      "error_code" text,
+      "retryable" boolean DEFAULT false NOT NULL,
+      "metadata" jsonb
+    );
+  `;
+
   // Indexes
   await sql`CREATE INDEX IF NOT EXISTS "sources_competitor_id_idx" ON "sources" ("competitor_id");`;
   await sql`CREATE INDEX IF NOT EXISTS "scrape_runs_source_id_started_at_idx" ON "scrape_runs" ("source_id", "started_at");`;
@@ -130,6 +146,9 @@ async function runMigration() {
   await sql`CREATE INDEX IF NOT EXISTS "source_activity_competitor_id_occurred_at_idx" ON "source_activity" ("competitor_id", "occurred_at");`;
   await sql`CREATE INDEX IF NOT EXISTS "source_activity_source_id_occurred_at_idx" ON "source_activity" ("source_id", "occurred_at");`;
   await sql`CREATE INDEX IF NOT EXISTS "source_activity_occurred_at_idx" ON "source_activity" ("occurred_at");`;
+  await sql`CREATE INDEX IF NOT EXISTS "recovery_runs_source_id_idx" ON "recovery_runs" ("source_id");`;
+  await sql`CREATE INDEX IF NOT EXISTS "recovery_runs_status_idx" ON "recovery_runs" ("status");`;
+  await sql`CREATE INDEX IF NOT EXISTS "recovery_runs_source_id_status_idx" ON "recovery_runs" ("source_id", "status");`;
 
   console.log("✓ Database migrations successfully applied.");
 }

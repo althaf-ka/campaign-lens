@@ -4,3 +4,4 @@ export * from "./scrape-runs.ts";
 export * from "./snapshots.ts";
 export * from "./campaign-events.ts";
 export * from "./source-activity.ts";
+export * from "./recovery-runs.ts";

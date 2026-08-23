@@ -1,12 +1,22 @@
 import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@campaign-lens/ui/components/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@campaign-lens/ui/components/card";
 import { Badge } from "@campaign-lens/ui/components/badge";
 import { Button } from "@campaign-lens/ui/components/button";
 import { Input } from "@campaign-lens/ui/components/input";
 import { Skeleton } from "@campaign-lens/ui/components/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@campaign-lens/ui/components/alert";
 import { Separator } from "@campaign-lens/ui/components/separator";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -27,7 +37,9 @@ export const Route = createFileRoute("/competitors/")({
 });
 
 function CompetitorsIndexPage() {
-  const { data, isLoading, error, refetch } = useQuery(competitorsQueryOptions());
+  const { data, isLoading, error, refetch } = useQuery(
+    competitorsQueryOptions(),
+  );
   const [search, setSearch] = React.useState("");
 
   const competitors = data?.competitors ?? [];
@@ -55,7 +67,11 @@ function CompetitorsIndexPage() {
           render={<Link to="/competitors/new" />}
           className="gap-2 text-xs self-start sm:self-auto cursor-pointer"
         >
-          <HugeiconsIcon icon={Target02Icon} strokeWidth={2} className="size-3.5" />
+          <HugeiconsIcon
+            icon={Target02Icon}
+            strokeWidth={2}
+            className="size-3.5"
+          />
           <span>Track competitor</span>
         </Button>
       </div>
@@ -70,11 +86,17 @@ function CompetitorsIndexPage() {
         </div>
       ) : error ? (
         <Alert variant="destructive">
-          <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-4" />
+          <HugeiconsIcon
+            icon={AlertCircleIcon}
+            strokeWidth={2}
+            className="size-4"
+          />
           <AlertTitle>Failed to load competitors</AlertTitle>
           <AlertDescription className="mt-2 flex items-center justify-between">
             <span className="text-xs">
-              {error instanceof Error ? error.message : "An unexpected error occurred."}
+              {error instanceof Error
+                ? error.message
+                : "An unexpected error occurred."}
             </span>
             <Button
               variant="outline"
@@ -82,7 +104,11 @@ function CompetitorsIndexPage() {
               onClick={() => refetch()}
               className="gap-1.5 text-xs"
             >
-              <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
+              <HugeiconsIcon
+                icon={RefreshIcon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
               Retry
             </Button>
           </AlertDescription>
@@ -90,11 +116,18 @@ function CompetitorsIndexPage() {
       ) : competitors.length === 0 ? (
         <Card className="border-dashed p-12 text-center bg-muted/20">
           <div className="mx-auto size-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-3">
-            <HugeiconsIcon icon={Store01Icon} strokeWidth={2} className="size-5" />
+            <HugeiconsIcon
+              icon={Store01Icon}
+              strokeWidth={2}
+              className="size-5"
+            />
           </div>
-          <h3 className="text-base font-semibold text-foreground">No Competitors Tracked Yet</h3>
+          <h3 className="text-base font-semibold text-foreground">
+            No Competitors Tracked Yet
+          </h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-            Connect a public competitor website to a custom Bright Data Scraper Studio collector to capture verified campaign intelligence.
+            Connect a public competitor website to a custom Bright Data Scraper
+            Studio collector to capture verified campaign intelligence.
           </p>
           <div className="mt-4">
             <Button
@@ -102,7 +135,11 @@ function CompetitorsIndexPage() {
               render={<Link to="/competitors/new" />}
               className="gap-2 text-xs cursor-pointer"
             >
-              <HugeiconsIcon icon={Target02Icon} strokeWidth={2} className="size-3.5" />
+              <HugeiconsIcon
+                icon={Target02Icon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
               <span>Track competitor</span>
             </Button>
           </div>
@@ -111,14 +148,17 @@ function CompetitorsIndexPage() {
         <div className="space-y-4">
           {/* Search bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative w-full sm:max-w-sm">
               <HugeiconsIcon
                 icon={Search01Icon}
                 strokeWidth={2}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground"
               />
               <Input
-                placeholder="Search competitors by name or domain..."
+                aria-label="Search competitors"
+                name="competitor-search"
+                autoComplete="off"
+                placeholder="Search by name or domain…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8 text-xs h-9 rounded-none bg-card"
@@ -126,7 +166,8 @@ function CompetitorsIndexPage() {
             </div>
 
             <span className="text-xs text-muted-foreground font-mono">
-              {filtered.length} competitor{filtered.length === 1 ? "" : "s"} tracked
+              {filtered.length} competitor{filtered.length === 1 ? "" : "s"}{" "}
+              tracked
             </span>
           </div>
 
@@ -138,23 +179,38 @@ function CompetitorsIndexPage() {
               >
                 <CardHeader className="pb-3">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <CardTitle className="text-lg font-bold text-foreground">
                         {comp.name}
                       </CardTitle>
                       <a
-                        href={comp.domain.startsWith("http") ? comp.domain : `https://${comp.domain}`}
+                        href={
+                          comp.domain.startsWith("http")
+                            ? comp.domain
+                            : `https://${comp.domain}`
+                        }
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono transition-colors"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono transition-colors max-w-full break-all"
                       >
-                        <span>{comp.domain}</span>
-                        <HugeiconsIcon icon={LinkSquare01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
+                        <span className="break-all">{comp.domain}</span>
+                        <HugeiconsIcon
+                          icon={LinkSquare01Icon}
+                          strokeWidth={2}
+                          className="size-3 text-muted-foreground shrink-0"
+                        />
                       </a>
                     </div>
 
-                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1 text-xs self-start sm:self-auto">
-                      <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3 text-emerald-400" />
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1 text-xs self-start sm:self-auto"
+                    >
+                      <HugeiconsIcon
+                        icon={CheckmarkCircle01Icon}
+                        strokeWidth={2}
+                        className="size-3 text-emerald-400"
+                      />
                       <span>Tracked</span>
                     </Badge>
                   </div>
@@ -165,7 +221,11 @@ function CompetitorsIndexPage() {
                     Public Campaign Intelligence
                   </p>
                   <div className="flex items-center gap-1.5 text-xs text-primary">
-                    <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} className="size-3.5" />
+                    <HugeiconsIcon
+                      icon={Tag01Icon}
+                      strokeWidth={2}
+                      className="size-3.5"
+                    />
                     <span>Monitored with Bright Data Scraper Studio</span>
                   </div>
                 </CardContent>
@@ -180,11 +240,20 @@ function CompetitorsIndexPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    render={<Link to="/competitors/$competitorId" params={{ competitorId: comp.id }} />}
+                    render={
+                      <Link
+                        to="/competitors/$competitorId"
+                        params={{ competitorId: comp.id }}
+                      />
+                    }
                     className="gap-1.5 text-xs w-full sm:w-auto cursor-pointer"
                   >
                     <span>View Intelligence</span>
-                    <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      strokeWidth={2}
+                      className="size-3.5"
+                    />
                   </Button>
                 </CardFooter>
               </Card>

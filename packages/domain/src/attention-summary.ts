@@ -13,7 +13,11 @@ export function formatPriceChangeSummary(
 ): PriceChangeMetric {
   const symbol = currency === "INR" ? "₹" : `${currency} `;
 
-  if (beforeAmount === null || beforeAmount === undefined || beforeAmount === 0) {
+  if (
+    beforeAmount === null ||
+    beforeAmount === undefined ||
+    beforeAmount === 0
+  ) {
     const afterNum = afterAmount ?? 0;
     return {
       title: `Price updated to ${symbol}${afterNum.toLocaleString("en-IN")}`,
@@ -73,14 +77,14 @@ export function formatOfferChangeSummary(
 }
 
 export function formatHeadlineChangeSummary(
-  beforeHeadline: string | null | undefined,
+  _beforeHeadline: string | null | undefined,
   afterHeadline: string | null | undefined,
 ): string {
   return `Positioning updated: "${afterHeadline ?? "None"}"`;
 }
 
 export function formatCtaChangeSummary(
-  beforeCta: string | null | undefined,
+  _beforeCta: string | null | undefined,
   afterCta: string | null | undefined,
 ): string {
   return `Primary call-to-action updated: "${afterCta ?? "None"}"`;

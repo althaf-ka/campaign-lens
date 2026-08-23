@@ -4,3 +4,4 @@ export * from "./diff-campaign-snapshots.ts";
 export * from "./extraction-integrity.ts";
 export * from "./competitor-onboarding.ts";
 export * from "./attention-summary.ts";
+export * from "./scrape-run-status.ts";
