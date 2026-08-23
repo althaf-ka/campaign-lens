@@ -18,7 +18,7 @@ app.use("*", async (c, next) => {
         allowedOrigins.includes(origin) ||
         origin.endsWith(".pages.dev") ||
         origin.endsWith(".workers.dev") ||
-        (c.env && (c.env as Record<string, unknown>).ALLOWED_ORIGIN === origin)
+        (c.env && (c.env as unknown as Record<string, unknown>).ALLOWED_ORIGIN === origin)
       ) {
         return origin;
       }
