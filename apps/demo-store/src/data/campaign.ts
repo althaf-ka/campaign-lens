@@ -5,14 +5,15 @@ export const campaign = {
 
   description: "Everything you need to upgrade your room in under 20 minutes.",
 
-  offer: "Save 30% on the Lumora Starter Kit",
+  offer: "Free Pro Upgrade with every Starter Kit",
 
   price: {
-    current: 1999,
+    current: 2299,
     previous: 2899,
     currency: "INR",
     qualifier: "Starter Kit",
   },
+
 
   cta: {
     label: "Get the Starter Kit",

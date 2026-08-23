@@ -13,11 +13,13 @@
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "node src/migrate.ts",
     "db:push": "drizzle-kit push",
     "test": "node --test",
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit"
   },
+
   "dependencies": {
     "@campaign-lens/domain": "workspace:*",
     "@neondatabase/serverless": "^0.10.4",
