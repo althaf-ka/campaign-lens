@@ -1,6 +1,7 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { BrightDataClient } from "./client.ts";
+import { SelfHealingUnavailableError } from "./errors.ts";
 
 describe("BrightDataClient", () => {
   const originalFetch = globalThis.fetch;
@@ -180,5 +181,147 @@ describe("BrightDataClient", () => {
       (result as Array<{ headline: string }>)[0]?.headline,
       "Smarter lighting. Simpler living.",
     );
+  });
+
+  describe("Self-Healing API", () => {
+    it("5. triggers refactor_template with prompt and custom_input", async () => {
+      let capturedUrl: string | undefined;
+      let capturedMethod: string | undefined;
+      let capturedBody: unknown;
+
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        capturedUrl = String(input);
+        capturedMethod = init?.method;
+        capturedBody = init?.body ? JSON.parse(String(init.body)) : undefined;
+
+        return new Response(JSON.stringify({ status: "triggered" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }) as typeof fetch;
+
+      const client = new BrightDataClient({ apiToken: mockToken });
+      await client.triggerRefactorTemplate({
+        collectorId,
+        prompt: "Recover missing price and CTA selectors",
+      });
+
+      assert.equal(capturedMethod, "POST");
+      assert.ok(capturedUrl?.includes(`/dca/collectors/${collectorId}/refactor_template`));
+      assert.deepEqual(capturedBody, {
+        prompt: "Recover missing price and CTA selectors",
+        custom_input: [],
+      });
+    });
+
+    it("6. throws SelfHealingUnavailableError on HTTP 503 disabled response", async () => {
+      globalThis.fetch = (async () => {
+        return new Response(
+          JSON.stringify({
+            status: "heal_trigger_failed",
+            error: "Self healing tool is temporarily disabled",
+          }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }) as typeof fetch;
+
+      const client = new BrightDataClient({ apiToken: mockToken });
+
+      await assert.rejects(
+        async () => {
+          await client.triggerRefactorTemplate({
+            collectorId,
+            prompt: "Recover selectors",
+          });
+        },
+        (err: unknown) => {
+          assert.ok(err instanceof SelfHealingUnavailableError);
+          assert.equal(err.statusCode, 503);
+          assert.equal(err.retryable, true);
+          return true;
+        },
+      );
+    });
+
+    it("7. polls refactor_template/progress until pending_answer (awaiting approval)", async () => {
+      let pollCount = 0;
+
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const urlStr = String(input);
+        assert.ok(urlStr.includes(`/dca/collectors/${collectorId}/refactor_template/progress`));
+        pollCount++;
+
+        if (pollCount === 1) {
+          return new Response(
+            JSON.stringify({ status: "running", step: "analyzing" }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            status: "pending_answer",
+            step: "review_diff",
+            preview_result: [
+              {
+                headline: "Smarter lighting. Simpler living.",
+                offer: "Free Pro Upgrade with every Starter Kit",
+                pricing: { amount: 2299, currency: "INR", qualifier: "Starter Kit" },
+                primaryCta: { label: "Get the Starter Kit", href: "#products" },
+                guarantees: ["Free installation support", "30-day returns", "2-year warranty"],
+                sourceUrl: testUrl,
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }) as typeof fetch;
+
+      const client = new BrightDataClient({ apiToken: mockToken });
+      const progress = await client.pollRefactorProgress({
+        collectorId,
+        intervalMs: 5,
+        maxAttempts: 5,
+      });
+
+      assert.equal(pollCount, 2);
+      assert.equal(progress.status, "pending_answer");
+      assert.ok(Array.isArray(progress.preview_result));
+      assert.equal(progress.preview_result.length, 1);
+    });
+
+    it("8. resumeAutomationJob sends approval decision with auto_save", async () => {
+      let capturedUrl: string | undefined;
+      let capturedMethod: string | undefined;
+      let capturedBody: unknown;
+
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        capturedUrl = String(input);
+        capturedMethod = init?.method;
+        capturedBody = init?.body ? JSON.parse(String(init.body)) : undefined;
+
+        return new Response(JSON.stringify({ status: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }) as typeof fetch;
+
+      const client = new BrightDataClient({ apiToken: mockToken });
+      await client.resumeAutomationJob({
+        collectorId,
+        approve: true,
+        autoSave: true,
+      });
+
+      assert.equal(capturedMethod, "POST");
+      assert.ok(capturedUrl?.includes(`/dca/collectors/${collectorId}/resume_automation_job`));
+      assert.deepEqual(capturedBody, {
+        message: true,
+        auto_save: true,
+      });
+    });
   });
 });

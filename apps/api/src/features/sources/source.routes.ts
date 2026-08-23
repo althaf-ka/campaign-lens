@@ -3,6 +3,7 @@ import { BrightDataError } from "@campaign-lens/brightdata";
 import { createDb, seedLumora, getSourceById } from "@campaign-lens/db";
 
 import { runSource } from "./run-source.ts";
+import { healSource } from "./heal-source.ts";
 
 export const sourceRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -89,6 +90,87 @@ sourceRoutes.post("/sources/:id/run", async (c) => {
             error instanceof Error
               ? error.message
               : "An unexpected error occurred.",
+        },
+      },
+      500,
+    );
+  }
+});
+
+/**
+ * Triggers autonomous Bright Data Self-Healing recovery for a degraded source.
+ */
+sourceRoutes.post("/sources/:id/heal", async (c) => {
+  const apiToken = c.env.BRIGHT_DATA_API_TOKEN;
+  const databaseUrl = c.env.DATABASE_URL;
+
+  if (!apiToken) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message:
+            "BRIGHT_DATA_API_TOKEN is not configured in worker bindings.",
+        },
+      },
+      500,
+    );
+  }
+
+  if (!databaseUrl) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message: "DATABASE_URL is not configured in worker bindings.",
+        },
+      },
+      500,
+    );
+  }
+
+  const sourceId = c.req.param("id");
+  const db = createDb(databaseUrl);
+
+  try {
+    const existing = await getSourceById(db, sourceId);
+    if (!existing) {
+      return c.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: `Source '${sourceId}' was not found.`,
+          },
+        },
+        404,
+      );
+    }
+
+    const result = await healSource({
+      sourceId,
+      db,
+      apiToken,
+    });
+
+    if (result.status === "unavailable") {
+      return c.json(result, 503);
+    }
+
+    if (result.status === "needs_review" || result.status === "failed") {
+      return c.json(result, 422);
+    }
+
+    return c.json(result, 200);
+  } catch (error) {
+    console.error("[Source Heal Error]", error);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred during source healing.",
         },
       },
       500,

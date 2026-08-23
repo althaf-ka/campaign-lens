@@ -1,6 +1,6 @@
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { Navbar } from "@/components/navbar";
-import { HeroV1 } from "@/components/hero-v1";
+import { HeroV2 } from "@/components/hero-v2";
 import { ProductGrid } from "@/components/product-grid";
 import { Benefits } from "@/components/benefits";
 import { Reviews } from "@/components/reviews";
@@ -16,8 +16,8 @@ export default function HomePage() {
       <Navbar />
 
       <main className="flex-grow">
-        {/* 3. Hero / Main Campaign (V1) */}
-        <HeroV1 />
+        {/* 3. Hero / Main Campaign (V2 Redesigned DOM) */}
+        <HeroV2 />
 
         {/* 4. Product / Bundle Cards */}
         <ProductGrid />

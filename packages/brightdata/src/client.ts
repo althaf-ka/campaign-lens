@@ -1,4 +1,9 @@
-import { BrightDataError } from "./errors.ts";
+import {
+  BrightDataError,
+  SelfHealingUnavailableError,
+  SelfHealingFailedError,
+} from "./errors.ts";
+import type { HealingProgress } from "./healing/types.ts";
 
 export interface BrightDataClientOptions {
   apiToken: string;
@@ -16,6 +21,18 @@ export interface PollOptions {
   maxAttempts?: number;
   intervalMs?: number;
   timeoutMs?: number;
+}
+
+export interface RefactorOptions {
+  collectorId: string;
+  prompt: string;
+  customInput?: unknown[];
+}
+
+export interface ResumeOptions {
+  collectorId: string;
+  approve: boolean;
+  autoSave?: boolean;
 }
 
 export class BrightDataClient {
@@ -297,6 +314,199 @@ export class BrightDataClient {
 
     throw new BrightDataError(
       `Bright Data collector reached maximum polling attempts (${maxAttempts}) without completing.`,
+    );
+  }
+
+  /**
+   * Triggers Bright Data Self-Healing for an existing collector in Scraper Studio.
+   * Endpoint: POST /dca/collectors/<collectorId>/refactor_template
+   */
+  async triggerRefactorTemplate(options: RefactorOptions): Promise<void> {
+    const endpoint = `${this.baseUrl}/dca/collectors/${encodeURIComponent(options.collectorId)}/refactor_template`;
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: options.prompt,
+          custom_input: options.customInput ?? [],
+        }),
+      });
+    } catch (err) {
+      throw new BrightDataError(
+        "Network error while connecting to Bright Data Self-Healing API.",
+        { cause: err },
+      );
+    }
+
+    if (response.status === 503) {
+      const errorText = await response.text().catch(() => "");
+      throw new SelfHealingUnavailableError(
+        errorText || "Self healing tool is temporarily disabled",
+        { statusCode: 503, details: errorText },
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      if (/Self healing tool is temporarily disabled/i.test(errorText)) {
+        throw new SelfHealingUnavailableError(errorText, {
+          statusCode: response.status,
+          details: errorText,
+        });
+      }
+      throw new BrightDataError(
+        `Bright Data Self-Healing trigger failed with HTTP ${response.status}: ${errorText}`,
+        { statusCode: response.status, details: errorText },
+      );
+    }
+  }
+
+  /**
+   * Fetches progress of an active Self-Healing refactor job.
+   * Endpoint: GET /dca/collectors/<collectorId>/refactor_template/progress
+   */
+  async getRefactorProgress(collectorId: string): Promise<HealingProgress> {
+    const endpoint = `${this.baseUrl}/dca/collectors/${encodeURIComponent(collectorId)}/refactor_template/progress`;
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.apiToken}`,
+        },
+      });
+    } catch (err) {
+      throw new BrightDataError(
+        "Network error while fetching Bright Data Self-Healing progress.",
+        { cause: err },
+      );
+    }
+
+    if (response.status === 503) {
+      const errorText = await response.text().catch(() => "");
+      throw new SelfHealingUnavailableError(
+        errorText || "Self healing tool is temporarily disabled",
+        { statusCode: 503, details: errorText },
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      if (/Self healing tool is temporarily disabled/i.test(errorText)) {
+        throw new SelfHealingUnavailableError(errorText, {
+          statusCode: response.status,
+          details: errorText,
+        });
+      }
+      throw new BrightDataError(
+        `Bright Data Self-Healing progress check failed with HTTP ${response.status}: ${errorText}`,
+        { statusCode: response.status, details: errorText },
+      );
+    }
+
+    return (await response.json()) as HealingProgress;
+  }
+
+  /**
+   * Resumes and approves or rejects an awaiting Self-Healing job.
+   * Endpoint: POST /dca/collectors/<collectorId>/resume_automation_job
+   */
+  async resumeAutomationJob(options: ResumeOptions): Promise<void> {
+    const endpoint = `${this.baseUrl}/dca/collectors/${encodeURIComponent(options.collectorId)}/resume_automation_job`;
+
+    const body = options.approve
+      ? { message: true, ...(options.autoSave !== false ? { auto_save: true } : {}) }
+      : { message: false };
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      throw new BrightDataError(
+        "Network error while resuming Bright Data Self-Healing job.",
+        { cause: err },
+      );
+    }
+
+    if (response.status === 503) {
+      const errorText = await response.text().catch(() => "");
+      throw new SelfHealingUnavailableError(
+        errorText || "Self healing tool is temporarily disabled",
+        { statusCode: 503, details: errorText },
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new BrightDataError(
+        `Bright Data resume_automation_job failed with HTTP ${response.status}: ${errorText}`,
+        { statusCode: response.status, details: errorText },
+      );
+    }
+  }
+
+  /**
+   * Polls Self-Healing progress until status is pending_answer (awaiting approval), done, or terminal error.
+   */
+  async pollRefactorProgress(options: {
+    collectorId: string;
+    maxAttempts?: number;
+    intervalMs?: number;
+    timeoutMs?: number;
+  }): Promise<HealingProgress> {
+    const maxAttempts = options.maxAttempts ?? 120;
+    const intervalMs = options.intervalMs ?? 3000;
+    const timeoutMs = options.timeoutMs ?? 300_000;
+    const startTime = Date.now();
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (Date.now() - startTime > timeoutMs) {
+        throw new BrightDataError(
+          `Bright Data Self-Healing polling timed out after ${timeoutMs}ms (attempt ${attempt}/${maxAttempts}).`,
+        );
+      }
+
+      const progress = await this.getRefactorProgress(options.collectorId);
+      const status = progress.status?.toLowerCase();
+
+      // Ready for human/automated review & approval
+      if (status === "pending_answer") {
+        return progress;
+      }
+
+      // Completed
+      if (status === "done") {
+        return progress;
+      }
+
+      // Terminal errors
+      if (status === "failed" || status === "error" || status === "cancelled") {
+        throw new SelfHealingFailedError(
+          progress.error || `Self-healing finished with status '${status}'.`,
+          status,
+          { details: progress },
+        );
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    throw new BrightDataError(
+      `Bright Data Self-Healing reached maximum polling attempts (${maxAttempts}) without completing.`,
     );
   }
 }

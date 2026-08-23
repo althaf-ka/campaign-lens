@@ -18,3 +18,22 @@ export class BrightDataError extends Error {
     }
   }
 }
+
+export class SelfHealingUnavailableError extends BrightDataError {
+  readonly retryable: boolean = true;
+
+  constructor(message = "Self healing tool is temporarily disabled", options?: BrightDataErrorOptions) {
+    super(message, { statusCode: 503, ...options });
+    this.name = "SelfHealingUnavailableError";
+  }
+}
+
+export class SelfHealingFailedError extends BrightDataError {
+  readonly status?: string;
+
+  constructor(message: string, status?: string, options?: BrightDataErrorOptions) {
+    super(message, options);
+    this.name = "SelfHealingFailedError";
+    this.status = status;
+  }
+}
