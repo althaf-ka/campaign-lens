@@ -1,10 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { CompetitorDetailResponse, CompetitorListResponse } from "../types.ts";
 
-export const API_BASE_URL =
-  typeof window !== "undefined"
-    ? (import.meta.env.VITE_API_URL || "http://localhost:8787")
-    : (process.env.VITE_API_URL || "http://localhost:8787");
+import { API_BASE_URL } from "../../../config/api.ts";
+
 
 export async function fetchCompetitors(): Promise<CompetitorListResponse> {
   const res = await fetch(`${API_BASE_URL}/competitors`);
