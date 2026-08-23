@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as CompetitorsIndexRouteImport } from './routes/competitors/index'
 import { Route as CompetitorsCompetitorIdRouteImport } from './routes/competitors/$competitorId'
 import { Route as CompetitorsNewRouteImport } from './routes/competitors/new'
@@ -17,6 +18,11 @@ import { Route as CompetitorsNewRouteImport } from './routes/competitors/new'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompetitorsIndexRoute = CompetitorsIndexRouteImport.update({
@@ -37,12 +43,14 @@ const CompetitorsNewRoute = CompetitorsNewRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/competitors/$competitorId': typeof CompetitorsCompetitorIdRoute
   '/competitors/new': typeof CompetitorsNewRoute
   '/competitors/': typeof CompetitorsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/competitors/$competitorId': typeof CompetitorsCompetitorIdRoute
   '/competitors/new': typeof CompetitorsNewRoute
   '/competitors': typeof CompetitorsIndexRoute
@@ -50,6 +58,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/competitors/$competitorId': typeof CompetitorsCompetitorIdRoute
   '/competitors/new': typeof CompetitorsNewRoute
   '/competitors/': typeof CompetitorsIndexRoute
@@ -58,14 +67,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
     | '/competitors/$competitorId'
     | '/competitors/new'
     | '/competitors/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/competitors/$competitorId' | '/competitors/new' | '/competitors'
+  to:
+    | '/'
+    | '/activity'
+    | '/competitors/$competitorId'
+    | '/competitors/new'
+    | '/competitors'
   id:
     | '__root__'
     | '/'
+    | '/activity'
     | '/competitors/$competitorId'
     | '/competitors/new'
     | '/competitors/'
@@ -73,6 +89,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityRoute: typeof ActivityRoute
   CompetitorsCompetitorIdRoute: typeof CompetitorsCompetitorIdRoute
   CompetitorsNewRoute: typeof CompetitorsNewRoute
   CompetitorsIndexRoute: typeof CompetitorsIndexRoute
@@ -85,6 +102,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/competitors/': {
@@ -113,6 +137,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
   CompetitorsCompetitorIdRoute: CompetitorsCompetitorIdRoute,
   CompetitorsNewRoute: CompetitorsNewRoute,
   CompetitorsIndexRoute: CompetitorsIndexRoute,

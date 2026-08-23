@@ -109,11 +109,27 @@ async function runMigration() {
     );
   `;
 
+  // 6. Create source_activity table
+  await sql`
+    CREATE TABLE IF NOT EXISTS "source_activity" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "competitor_id" uuid NOT NULL REFERENCES "competitors"("id") ON DELETE cascade,
+      "source_id" uuid NOT NULL REFERENCES "sources"("id") ON DELETE cascade,
+      "type" text NOT NULL,
+      "message" text NOT NULL,
+      "metadata" jsonb,
+      "occurred_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+  `;
+
   // Indexes
   await sql`CREATE INDEX IF NOT EXISTS "sources_competitor_id_idx" ON "sources" ("competitor_id");`;
   await sql`CREATE INDEX IF NOT EXISTS "scrape_runs_source_id_started_at_idx" ON "scrape_runs" ("source_id", "started_at");`;
   await sql`CREATE INDEX IF NOT EXISTS "snapshots_source_id_captured_at_idx" ON "snapshots" ("source_id", "captured_at");`;
   await sql`CREATE INDEX IF NOT EXISTS "campaign_events_competitor_id_detected_at_idx" ON "campaign_events" ("competitor_id", "detected_at");`;
+  await sql`CREATE INDEX IF NOT EXISTS "source_activity_competitor_id_occurred_at_idx" ON "source_activity" ("competitor_id", "occurred_at");`;
+  await sql`CREATE INDEX IF NOT EXISTS "source_activity_source_id_occurred_at_idx" ON "source_activity" ("source_id", "occurred_at");`;
+  await sql`CREATE INDEX IF NOT EXISTS "source_activity_occurred_at_idx" ON "source_activity" ("occurred_at");`;
 
   console.log("✓ Database migrations successfully applied.");
 }

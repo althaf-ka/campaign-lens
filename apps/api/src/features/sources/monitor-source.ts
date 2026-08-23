@@ -2,6 +2,7 @@ import {
   type Database,
   getSourceById,
   updateSourceSchedule,
+  insertSourceActivity,
 } from "@campaign-lens/db";
 import { runSource, type SourceRunResult } from "./run-source.ts";
 import { healSource, type HealSourceResult } from "./heal-source.ts";
@@ -66,6 +67,7 @@ const DEFAULT_RETRY_INTERVAL_MINUTES = 15; // 15 minutes bounded retry for degra
  * 2. Evaluates run results against deterministic recovery policy (shouldAttemptHealing).
  * 3. Automatically triggers Bright Data Self-Healing for recoverable DOM/extraction breakage.
  * 4. Schedules the next monitoring cycle timestamp (nextRunAt).
+ * 5. Records operational activity into source_activity audit log.
  */
 export async function monitorSource(
   options: MonitorSourceOptions,
@@ -86,6 +88,15 @@ export async function monitorSource(
     throw new Error(`Source with ID '${sourceId}' not found.`);
   }
 
+  // 1. Record monitor started activity
+  await insertSourceActivity(db, {
+    competitorId: source.competitorId,
+    sourceId: source.id,
+    type: "monitor_started",
+    message: "Source monitoring started",
+    occurredAt: now,
+  });
+
   let runResult: SourceRunResult | undefined;
   let runError: unknown;
 
@@ -95,13 +106,24 @@ export async function monitorSource(
     runError = err;
   }
 
-  // 1. If run succeeded and is healthy -> update schedule and return
+  // 2. If run succeeded and is healthy -> update schedule and record success
   if (runResult && runResult.status === "healthy") {
     const nextRunAt = new Date(now.getTime() + intervalMinutes * 60 * 1000);
     await updateSourceSchedule(db, source.id, {
       nextRunAt,
       health: "healthy",
       lastRunAt: now,
+    });
+
+    await insertSourceActivity(db, {
+      competitorId: source.competitorId,
+      sourceId: source.id,
+      type: "monitor_succeeded",
+      message: "Monitoring completed successfully",
+      metadata: {
+        changesDetected: runResult.changes.length,
+      },
+      occurredAt: new Date(),
     });
 
     return {
@@ -113,10 +135,26 @@ export async function monitorSource(
     };
   }
 
-  // 2. Evaluate recovery policy
+  // 3. Evaluate recovery policy
   const decision = shouldAttemptHealing(runResult, runError);
 
-  // 3. If healing is NOT appropriate (e.g. auth error, rate limit, network drop)
+  // Record extraction degraded activity
+  await insertSourceActivity(db, {
+    competitorId: source.competitorId,
+    sourceId: source.id,
+    type: "extraction_degraded",
+    message:
+      runResult?.status === "degraded"
+        ? "Website structure changed · Extraction degraded"
+        : `Website collection failed: ${decision.reason}`,
+    metadata: {
+      reason: decision.reason,
+      missing: runResult?.status === "degraded" ? runResult.missing : [],
+    },
+    occurredAt: new Date(),
+  });
+
+  // 4. If healing is NOT appropriate (e.g. auth error, rate limit, network drop)
   if (!decision.shouldHeal) {
     const isFatalAuthOrConfig =
       decision.reason === "authentication_error" ||
@@ -163,7 +201,7 @@ export async function monitorSource(
     };
   }
 
-  // 4. Healing IS appropriate -> trigger autonomous recovery
+  // 5. Healing IS appropriate -> trigger autonomous recovery
   const healResult = await healSource({
     sourceId: source.id,
     db,

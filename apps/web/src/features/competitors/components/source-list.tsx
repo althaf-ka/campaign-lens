@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Card, CardHeader, CardTitle, CardContent } from "@campaign-lens/ui/components/card";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { LinkSquare01Icon, AlertCircleIcon } from "@hugeicons/core-free-icons";
@@ -12,9 +13,17 @@ export function SourceList({ sources }: SourceListProps) {
   return (
     <Card className="bg-card">
       <CardHeader className="py-4 px-6 pb-2">
-        <CardTitle className="text-base font-semibold text-foreground">
-          Sources
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-semibold text-foreground">
+            Sources
+          </CardTitle>
+          <Link
+            to="/activity"
+            className="text-xs text-primary hover:underline font-medium"
+          >
+            View activity log →
+          </Link>
+        </div>
       </CardHeader>
       <CardContent className="p-6 pt-0 divide-y divide-border/60">
         {sources.map((source) => {

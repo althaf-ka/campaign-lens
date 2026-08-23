@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { healthRoutes } from "./features/health/health.routes.ts";
 import { sourceRoutes } from "./features/sources/source.routes.ts";
 import { competitorRoutes } from "./features/competitors/competitor.routes.ts";
+import { activityRoutes } from "./features/activity/activity.routes.ts";
 
 export const app = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -33,3 +34,4 @@ app.use("*", async (c, next) => {
 app.route("/", healthRoutes);
 app.route("/", sourceRoutes);
 app.route("/", competitorRoutes);
+app.route("/", activityRoutes);

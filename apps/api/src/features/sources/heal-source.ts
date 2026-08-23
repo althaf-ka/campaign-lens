@@ -11,6 +11,7 @@ import {
   type Database,
   getSourceById,
   updateSourceHealth,
+  insertSourceActivity,
 } from "@campaign-lens/db";
 import { runSource, type SourceRunResult } from "./run-source.ts";
 import type { z } from "zod";
@@ -75,6 +76,7 @@ const DEFAULT_HEALING_PROMPT =
  * 2. Safely handles temporary platform outages without corrupting source health or credentials.
  * 3. Inspects proposed AI refactor preview before approval (validating Zod schema + domain extraction integrity).
  * 4. Only approves valid repairs, re-running the same collector ID and restoring healthy campaign monitoring.
+ * 5. Logs recovery milestones into source_activity audit log.
  */
 export async function healSource(
   options: HealSourceOptions,
@@ -97,8 +99,15 @@ export async function healSource(
     };
   }
 
-  // 3. Mark source as healing in DB
+  // 3. Mark source as healing in DB and log activity
   await updateSourceHealth(db, source.id, "healing");
+  await insertSourceActivity(db, {
+    competitorId: source.competitorId,
+    sourceId: source.id,
+    type: "healing_started",
+    message: "Bright Data AI Self-Healing requested",
+    occurredAt: new Date(),
+  });
 
   // 4. Trigger Bright Data Self-Healing AI job
   let progress;
@@ -120,6 +129,14 @@ export async function healSource(
       );
       // Reset health back to degraded (safe & retryable)
       await updateSourceHealth(db, source.id, "degraded");
+      await insertSourceActivity(db, {
+        competitorId: source.competitorId,
+        sourceId: source.id,
+        type: "healing_unavailable",
+        message: "Bright Data Self-Healing temporarily disabled · Automatic retry scheduled",
+        metadata: { retryable: true },
+        occurredAt: new Date(),
+      });
       return {
         status: "unavailable",
         sourceId: source.id,
@@ -133,6 +150,14 @@ export async function healSource(
     console.error(`[Source ${source.id}] Self-Healing trigger failed:`, errorMessage);
 
     await updateSourceHealth(db, source.id, "needs_review");
+    await insertSourceActivity(db, {
+      competitorId: source.competitorId,
+      sourceId: source.id,
+      type: "healing_failed",
+      message: `Self-Healing trigger failed: ${errorMessage}`,
+      metadata: { error: errorMessage },
+      occurredAt: new Date(),
+    });
     return {
       status: "failed",
       sourceId: source.id,
@@ -153,6 +178,13 @@ export async function healSource(
         progress,
       );
       await updateSourceHealth(db, source.id, "needs_review");
+      await insertSourceActivity(db, {
+        competitorId: source.competitorId,
+        sourceId: source.id,
+        type: "healing_failed",
+        message: "Self-Healing did not return a valid preview record",
+        occurredAt: new Date(),
+      });
       return {
         status: "needs_review",
         sourceId: source.id,
@@ -170,6 +202,13 @@ export async function healSource(
         schemaValidation.error.issues,
       );
       await updateSourceHealth(db, source.id, "needs_review");
+      await insertSourceActivity(db, {
+        competitorId: source.competitorId,
+        sourceId: source.id,
+        type: "healing_failed",
+        message: "Self-Healing proposed preview failed schema validation",
+        occurredAt: new Date(),
+      });
       return {
         status: "needs_review",
         sourceId: source.id,
@@ -192,6 +231,14 @@ export async function healSource(
         integrityValidation.missing,
       );
       await updateSourceHealth(db, source.id, "needs_review");
+      await insertSourceActivity(db, {
+        competitorId: source.competitorId,
+        sourceId: source.id,
+        type: "healing_failed",
+        message: `Self-Healing preview missing required fields: ${integrityValidation.missing.join(", ")}`,
+        metadata: { missing: integrityValidation.missing },
+        occurredAt: new Date(),
+      });
       return {
         status: "needs_review",
         sourceId: source.id,
@@ -218,6 +265,13 @@ export async function healSource(
       const approveMsg = approveError instanceof Error ? approveError.message : String(approveError);
       console.error(`[Source ${source.id}] Failed to commit Self-Healing approval:`, approveMsg);
       await updateSourceHealth(db, source.id, "needs_review");
+      await insertSourceActivity(db, {
+        competitorId: source.competitorId,
+        sourceId: source.id,
+        type: "healing_failed",
+        message: `Failed to commit Self-Healing approval: ${approveMsg}`,
+        occurredAt: new Date(),
+      });
       return {
         status: "failed",
         sourceId: source.id,
@@ -228,6 +282,13 @@ export async function healSource(
   } else if (progress.status !== "done") {
     // If terminal failure without pending_answer
     await updateSourceHealth(db, source.id, "needs_review");
+    await insertSourceActivity(db, {
+      competitorId: source.competitorId,
+      sourceId: source.id,
+      type: "healing_failed",
+      message: progress.error || `Self-healing finished with status '${progress.status}'`,
+      occurredAt: new Date(),
+    });
     return {
       status: "failed",
       sourceId: source.id,
@@ -241,6 +302,15 @@ export async function healSource(
     sourceId: source.id,
     db,
     apiToken,
+  });
+
+  await insertSourceActivity(db, {
+    competitorId: source.competitorId,
+    sourceId: source.id,
+    type: "healing_recovered",
+    message: "Scraper Studio collector repaired with same Collector ID",
+    metadata: { collectorId: source.collectorId },
+    occurredAt: new Date(),
   });
 
   return {

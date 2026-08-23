@@ -23,6 +23,7 @@ import {
   LayoutDashboardIcon,
   Target02Icon,
   Store01Icon,
+  Activity01Icon,
 } from "@hugeicons/core-free-icons";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -32,6 +33,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isOverview = currentPath === "/";
   const isCompetitors = currentPath.startsWith("/competitors");
   const isLumora = currentPath === "/competitors/7ad87193-6102-4dc0-85b4-3b8eda214264";
+  const isActivity = currentPath === "/activity";
 
   return (
     <Sidebar variant="floating" {...props}>
@@ -95,6 +97,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </SidebarMenuSubItem>
                   </SidebarMenuSub>
                 )}
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActivity}
+                  render={<Link to="/activity" />}
+                >
+                  <HugeiconsIcon icon={Activity01Icon} strokeWidth={2} className="size-4" />
+                  <span>Activity</span>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
