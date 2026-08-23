@@ -22,6 +22,7 @@ export async function seedLumora(db: Database): Promise<SeedResult> {
     type: "homepage",
     collectorId: "c_mt5kun512itlsaiw1s",
     health: "healthy",
+    nextRunAt: new Date(),
   });
 
   return { competitor, source };

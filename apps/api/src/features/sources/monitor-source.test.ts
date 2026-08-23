@@ -37,7 +37,7 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       {
         id: "source-uuid-1111",
         health: "healthy" as const,
-        nextRunAt: null,
+        nextRunAt: new Date("2026-08-23T11:00:00Z"),
       },
     ];
 
@@ -71,11 +71,13 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
           where: (condition?: unknown) => ({
             orderBy: () => ({
               limit: async (lim?: number) => {
-                // If condition is present in listDueSources query
+                // If condition is present in listDueSources query:
+                // nextRunAt IS NOT NULL AND nextRunAt <= now
                 if (condition && typeof condition === "object") {
+                  const nowBoundary = new Date("2026-08-23T12:00:00Z").getTime();
                   const list = sourceObjects.filter((s) => {
-                    if (s.nextRunAt === null) return true;
-                    return s.nextRunAt.getTime() <= new Date("2026-08-23T12:00:00Z").getTime();
+                    if (s.nextRunAt === null) return false; // Invariant: null is NOT due
+                    return s.nextRunAt.getTime() <= nowBoundary;
                   });
                   return lim ? list.slice(0, lim) : list;
                 }
@@ -340,29 +342,61 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
     });
   });
 
-  describe("Scheduled Runner (runDueSources)", () => {
-    it("9. due-source query excludes future sources and processes only due batch", async () => {
+  describe("Scheduled Runner & listDueSources Invariants", () => {
+    it("9. past nextRunAt is included in due sources", async () => {
       const now = new Date("2026-08-23T12:00:00Z");
-      const dueSource = { id: "due-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T11:00:00Z") };
-      const nullNextRunSource = { id: "due-2", health: "healthy" as const, nextRunAt: null };
-      const futureSource = { id: "future-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T13:00:00Z") };
+      const pastSource = { id: "past-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T11:00:00Z") };
 
       const { mockDb } = createMockDb({
-        sourcesList: [dueSource, nullNextRunSource, futureSource],
+        sourcesList: [pastSource],
       });
 
       const dueList = await listDueSources(mockDb, { now, limit: 10 });
-      assert.equal(dueList.length, 2);
-      assert.ok(dueList.some((s) => s.id === "due-1"));
-      assert.ok(dueList.some((s) => s.id === "due-2"));
-      assert.ok(!dueList.some((s) => s.id === "future-1"));
+      assert.equal(dueList.length, 1);
+      assert.equal(dueList[0]?.id, "past-1");
     });
 
-    it("10. one scheduled source failure does not stop processing other due sources", async () => {
+    it("10. future nextRunAt is excluded from due sources", async () => {
+      const now = new Date("2026-08-23T12:00:00Z");
+      const futureSource = { id: "future-1", health: "healthy" as const, nextRunAt: new Date("2026-08-23T13:00:00Z") };
+
+      const { mockDb } = createMockDb({
+        sourcesList: [futureSource],
+      });
+
+      const dueList = await listDueSources(mockDb, { now, limit: 10 });
+      assert.equal(dueList.length, 0);
+    });
+
+    it("11. null nextRunAt is excluded from automatic monitoring", async () => {
+      const now = new Date("2026-08-23T12:00:00Z");
+      const nullSource = { id: "null-1", health: "healthy" as const, nextRunAt: null };
+
+      const { mockDb } = createMockDb({
+        sourcesList: [nullSource],
+      });
+
+      const dueList = await listDueSources(mockDb, { now, limit: 10 });
+      assert.equal(dueList.length, 0);
+    });
+
+    it("12. needs_review source with null nextRunAt is excluded from automatic monitoring", async () => {
+      const now = new Date("2026-08-23T12:00:00Z");
+      const needsReviewSource = { id: "needs-review-1", health: "needs_review" as const, nextRunAt: null };
+
+      const { mockDb } = createMockDb({
+        sourcesList: [needsReviewSource],
+      });
+
+      const dueList = await listDueSources(mockDb, { now, limit: 10 });
+      assert.equal(dueList.length, 0);
+    });
+
+    it("13. one scheduled source failure does not stop processing other due sources", async () => {
       const { mockDb } = createMockDb({
         sourcesList: [
-          { id: "source-1", health: "healthy", nextRunAt: null },
-          { id: "source-2", health: "healthy", nextRunAt: null },
+          { id: "source-1", health: "healthy", nextRunAt: new Date("2026-08-23T11:00:00Z") },
+          { id: "source-2", health: "healthy", nextRunAt: new Date("2026-08-23T11:00:00Z") },
         ],
       });
 
@@ -389,7 +423,7 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       const summary = await runDueSources({
         db: mockDb,
         apiToken: mockToken,
-        now: new Date(),
+        now: new Date("2026-08-23T12:00:00Z"),
         limit: 10,
       });
 

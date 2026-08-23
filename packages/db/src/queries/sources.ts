@@ -1,4 +1,4 @@
-import { eq, lte, or, isNull, asc } from "drizzle-orm";
+import { eq, lte, and, isNotNull, asc } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   sources,
@@ -41,6 +41,12 @@ export async function getSourceByUrl(
   return rows[0];
 }
 
+/**
+ * Returns sources due for automated monitoring:
+ * Invariant:
+ * - `nextRunAt IS NOT NULL AND nextRunAt <= now` -> eligible for automated monitoring
+ * - `nextRunAt IS NULL` -> paused / manual / requires human review (excluded from scheduler)
+ */
 export async function listDueSources(
   db: Database,
   options?: {
@@ -54,7 +60,7 @@ export async function listDueSources(
   return db
     .select()
     .from(sources)
-    .where(or(isNull(sources.nextRunAt), lte(sources.nextRunAt, now)))
+    .where(and(isNotNull(sources.nextRunAt), lte(sources.nextRunAt, now)))
     .orderBy(asc(sources.nextRunAt))
     .limit(limit);
 }
@@ -63,7 +69,13 @@ export async function createSource(
   db: Database,
   data: NewSource,
 ): Promise<Source> {
-  const rows = await db.insert(sources).values(data).returning();
+  const rows = await db
+    .insert(sources)
+    .values({
+      ...data,
+      nextRunAt: data.nextRunAt ?? new Date(),
+    })
+    .returning();
   const row = rows[0];
   if (!row) {
     throw new Error("Failed to insert source.");
@@ -83,6 +95,7 @@ export async function upsertSource(
         name: data.name,
         type: data.type,
         collectorId: data.collectorId,
+        nextRunAt: data.nextRunAt ?? existing.nextRunAt ?? new Date(),
         updatedAt: new Date(),
       })
       .where(eq(sources.id, existing.id))
@@ -92,7 +105,10 @@ export async function upsertSource(
     return row;
   }
 
-  return createSource(db, data);
+  return createSource(db, {
+    ...data,
+    nextRunAt: data.nextRunAt ?? new Date(),
+  });
 }
 
 export async function updateSourceHealth(
