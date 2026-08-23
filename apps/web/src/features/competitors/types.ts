@@ -51,3 +51,10 @@ export interface CompetitorDetailResponse {
 export interface CompetitorListResponse {
   competitors: Competitor[];
 }
+
+export interface ComparisonResponse {
+  event: CampaignEventRecord;
+  before: CampaignSnapshot | null;
+  after: CampaignSnapshot;
+  changedFields: string[];
+}

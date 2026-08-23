@@ -1,12 +1,19 @@
 import { Hono } from "hono";
-import { createCompetitorInputSchema } from "@campaign-lens/domain";
+import {
+  createCompetitorInputSchema,
+  diffCampaignSnapshots,
+  type CampaignSnapshot,
+} from "@campaign-lens/domain";
 import {
   createDb,
   getCompetitors,
   getCompetitorById,
   getSourcesByCompetitorId,
   getCampaignEventsByCompetitorId,
+  getCampaignEventById,
   getLatestSnapshotBySourceId,
+  getSnapshotById,
+  getPreviousSnapshot,
   createCompetitorWithSource,
 } from "@campaign-lens/db";
 import { monitorSource } from "../sources/monitor-source.ts";
@@ -75,6 +82,70 @@ competitorRoutes.get("/competitors/:id", async (c) => {
     currentSnapshot: currentSnapshot?.data ?? null,
     sources: sourcesList,
     events: eventsList,
+  });
+});
+
+/**
+ * GET /campaign-events/:id/comparison
+ * Returns side-by-side snapshot comparison for a detected campaign change.
+ */
+competitorRoutes.get("/campaign-events/:id/comparison", async (c) => {
+  const databaseUrl = c.env.DATABASE_URL;
+  if (!databaseUrl) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message: "DATABASE_URL is not configured.",
+        },
+      },
+      500,
+    );
+  }
+
+  const eventId = c.req.param("id");
+  const db = createDb(databaseUrl);
+
+  const event = await getCampaignEventById(db, eventId);
+  if (!event) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Campaign event not found." } },
+      404,
+    );
+  }
+
+  const afterSnapshot = await getSnapshotById(db, event.snapshotId);
+  if (!afterSnapshot) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Resulting snapshot not found." } },
+      404,
+    );
+  }
+
+  // Find previous snapshot captured before this snapshot
+  const beforeSnapshot = await getPreviousSnapshot(
+    db,
+    event.sourceId,
+    afterSnapshot.capturedAt,
+  );
+
+  const beforeData = (beforeSnapshot?.data as CampaignSnapshot | undefined) ?? null;
+  const afterData = afterSnapshot.data as CampaignSnapshot;
+
+  // Determine changed fields using domain logic
+  const changedFields: string[] = [];
+  if (beforeData) {
+    const changes = diffCampaignSnapshots(beforeData, afterData);
+    changedFields.push(...changes.map((ch) => ch.type));
+  } else {
+    changedFields.push(event.type);
+  }
+
+  return c.json({
+    event,
+    before: beforeData,
+    after: afterData,
+    changedFields: Array.from(new Set(changedFields)),
   });
 });
 

@@ -26,6 +26,18 @@ export async function createCampaignEvents(
   return db.insert(campaignEvents).values(data).returning();
 }
 
+export async function getCampaignEventById(
+  db: Database,
+  id: string,
+): Promise<CampaignEvent | undefined> {
+  const rows = await db
+    .select()
+    .from(campaignEvents)
+    .where(eq(campaignEvents.id, id))
+    .limit(1);
+  return rows[0];
+}
+
 export async function getCampaignEventsByCompetitorId(
   db: Database,
   competitorId: string,

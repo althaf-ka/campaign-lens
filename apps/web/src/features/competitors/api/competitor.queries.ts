@@ -1,5 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
-import type { CompetitorDetailResponse, CompetitorListResponse } from "../types.ts";
+import type {
+  CompetitorDetailResponse,
+  CompetitorListResponse,
+  ComparisonResponse,
+} from "../types.ts";
 import { API_BASE_URL } from "../../../config/api.ts";
 
 export interface CreateCompetitorPayload {
@@ -45,6 +49,14 @@ export async function fetchCompetitor(id: string): Promise<CompetitorDetailRespo
       throw new Error("Competitor not found.");
     }
     throw new Error(`Failed to fetch competitor details: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchEventComparison(eventId: string): Promise<ComparisonResponse> {
+  const res = await fetch(`${API_BASE_URL}/campaign-events/${eventId}/comparison`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch event comparison: ${res.statusText}`);
   }
   return res.json();
 }
@@ -120,5 +132,13 @@ export function competitorQueryOptions(id: string) {
     queryKey: ["competitors", id],
     queryFn: () => fetchCompetitor(id),
     staleTime: 10_000,
+  });
+}
+
+export function eventComparisonQueryOptions(eventId: string) {
+  return queryOptions({
+    queryKey: ["event-comparison", eventId],
+    queryFn: () => fetchEventComparison(eventId),
+    staleTime: 60_000,
   });
 }

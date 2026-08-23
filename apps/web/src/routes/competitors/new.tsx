@@ -6,6 +6,14 @@ import { Input } from "@campaign-lens/ui/components/input";
 import { Button } from "@campaign-lens/ui/components/button";
 import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
 import { Separator } from "@campaign-lens/ui/components/separator";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@campaign-lens/ui/components/select";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
@@ -208,33 +216,49 @@ function TrackCompetitorPage() {
                   <label className="text-xs font-medium text-foreground">
                     Source Type
                   </label>
-                  <select
+                  <Select
                     value={sourceType}
-                    onChange={(e) => setSourceType(e.target.value as "homepage" | "pricing")}
+                    onValueChange={(val) => {
+                      if (val) setSourceType(val as "homepage" | "pricing");
+                    }}
                     disabled={isSubmitting}
-                    className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 dark:bg-input/30"
                   >
-                    <option value="homepage">Homepage Campaign</option>
-                    <option value="pricing">Pricing Page</option>
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="homepage">Homepage Campaign</SelectItem>
+                        <SelectItem value="pricing">Pricing Page</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground">
                     Monitoring Interval
                   </label>
-                  <select
-                    value={intervalMinutes}
-                    onChange={(e) => setIntervalMinutes(Number(e.target.value))}
+                  <Select
+                    value={String(intervalMinutes)}
+                    onValueChange={(val) => {
+                      if (val) setIntervalMinutes(Number(val));
+                    }}
                     disabled={isSubmitting}
-                    className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 text-xs text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 dark:bg-input/30"
                   >
-                    <option value={15}>Every 15 minutes</option>
-                    <option value={30}>Every 30 minutes</option>
-                    <option value={60}>Every hour</option>
-                    <option value={360}>Every 6 hours</option>
-                    <option value={1440}>Daily</option>
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select interval" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="15">Every 15 minutes</SelectItem>
+                        <SelectItem value="30">Every 30 minutes</SelectItem>
+                        <SelectItem value="60">Every hour</SelectItem>
+                        <SelectItem value="360">Every 6 hours</SelectItem>
+                        <SelectItem value="1440">Daily</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

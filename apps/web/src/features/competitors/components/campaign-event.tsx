@@ -1,5 +1,7 @@
+import * as React from "react";
 import { Card, CardHeader, CardContent } from "@campaign-lens/ui/components/card";
 import { Badge } from "@campaign-lens/ui/components/badge";
+import { Button } from "@campaign-lens/ui/components/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowUp01Icon,
@@ -8,8 +10,10 @@ import {
   Mouse01Icon,
   TextIcon,
   ArrowRight01Icon,
+  EyeIcon,
 } from "@hugeicons/core-free-icons";
 import type { CampaignEventRecord, CampaignEventType } from "../types.ts";
+import { SnapshotComparisonDialog } from "./snapshot-comparison-dialog.tsx";
 
 interface CampaignEventProps {
   event: CampaignEventRecord;
@@ -50,6 +54,7 @@ function getEventBadge(type: CampaignEventType) {
 }
 
 export function CampaignEvent({ event, sourceName }: CampaignEventProps) {
+  const [comparisonOpen, setComparisonOpen] = React.useState(false);
   const badgeInfo = getEventBadge(event.type);
   const detectedDate = new Date(event.detectedAt);
   const formattedTime = detectedDate.toLocaleTimeString([], {
@@ -144,23 +149,45 @@ export function CampaignEvent({ event, sourceName }: CampaignEventProps) {
   };
 
   return (
-    <Card className="bg-card hover:border-border transition-colors">
-      <CardHeader className="py-3 px-5 flex flex-row items-center justify-between space-y-0 border-b border-border/60">
-        <div className="flex items-center gap-2">
-          <Badge variant={badgeInfo.variant} className={badgeInfo.className}>
-            {badgeInfo.icon}
-            <span>{badgeInfo.label}</span>
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            · {cleanSourceName}
-          </span>
-        </div>
+    <>
+      <Card className="bg-card hover:border-border transition-colors">
+        <CardHeader className="py-3 px-5 flex flex-row items-center justify-between space-y-0 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <Badge variant={badgeInfo.variant} className={badgeInfo.className}>
+              {badgeInfo.icon}
+              <span>{badgeInfo.label}</span>
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              · {cleanSourceName}
+            </span>
+          </div>
 
-        <div className="text-xs text-muted-foreground">
-          {formattedDate} · {formattedTime}
-        </div>
-      </CardHeader>
-      <CardContent className="p-5">{renderContent()}</CardContent>
-    </Card>
+          <div className="text-xs text-muted-foreground">
+            {formattedDate} · {formattedTime}
+          </div>
+        </CardHeader>
+        <CardContent className="p-5 space-y-3">
+          {renderContent()}
+
+          <div className="pt-2 border-t border-border/40 flex items-center justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setComparisonOpen(true)}
+              className="text-xs text-primary hover:text-primary gap-1.5 h-7 px-2 cursor-pointer font-medium"
+            >
+              <HugeiconsIcon icon={EyeIcon} strokeWidth={2} className="size-3" />
+              <span>View comparison</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <SnapshotComparisonDialog
+        eventId={event.id}
+        open={comparisonOpen}
+        onOpenChange={setComparisonOpen}
+      />
+    </>
   );
 }
