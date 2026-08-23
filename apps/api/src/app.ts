@@ -4,6 +4,7 @@ import { healthRoutes } from "./features/health/health.routes.ts";
 import { sourceRoutes } from "./features/sources/source.routes.ts";
 import { competitorRoutes } from "./features/competitors/competitor.routes.ts";
 import { activityRoutes } from "./features/activity/activity.routes.ts";
+import { attentionRoutes } from "./features/attention/attention.routes.ts";
 
 export const app = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -35,3 +36,4 @@ app.route("/", healthRoutes);
 app.route("/", sourceRoutes);
 app.route("/", competitorRoutes);
 app.route("/", activityRoutes);
+app.route("/", attentionRoutes);

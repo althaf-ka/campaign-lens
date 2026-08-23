@@ -6,24 +6,21 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from "@campaign-lens/ui/components/sidebar";
+import { Button } from "@campaign-lens/ui/components/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   EyeIcon,
   LayoutDashboardIcon,
   Target02Icon,
-  Store01Icon,
   Activity01Icon,
+  PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -31,8 +28,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const currentPath = location.pathname;
 
   const isOverview = currentPath === "/";
-  const isCompetitors = currentPath.startsWith("/competitors");
-  const isLumora = currentPath === "/competitors/7ad87193-6102-4dc0-85b4-3b8eda214264";
+  const isCompetitors = currentPath.startsWith("/competitors") && currentPath !== "/competitors/new";
   const isActivity = currentPath === "/activity";
 
   return (
@@ -57,11 +53,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-2">
+      <SidebarContent className="px-2 py-2 flex flex-col justify-between">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs text-muted-foreground font-medium">
-            Platform
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
               <SidebarMenuItem>
@@ -76,27 +69,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={isCompetitors && !isLumora}
+                  isActive={isCompetitors}
                   render={<Link to="/competitors" />}
                 >
                   <HugeiconsIcon icon={Target02Icon} strokeWidth={2} className="size-4" />
                   <span>Competitors</span>
                 </SidebarMenuButton>
-                <SidebarMenuBadge>1</SidebarMenuBadge>
-
-                {isCompetitors && (
-                  <SidebarMenuSub className="ml-4 border-l border-sidebar-border px-2 py-1">
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        isActive={isLumora}
-                        render={<Link to="/competitors/7ad87193-6102-4dc0-85b4-3b8eda214264" />}
-                      >
-                        <HugeiconsIcon icon={Store01Icon} strokeWidth={2} className="size-3 text-primary" />
-                        <span className="truncate">Lumora</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-                )}
               </SidebarMenuItem>
 
               <SidebarMenuItem>
@@ -111,14 +89,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <div className="px-2 py-3">
+          <Button
+            size="sm"
+            className="w-full justify-center gap-1.5 text-xs h-9 cursor-pointer"
+            render={<Link to="/competitors/new" />}
+          >
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
+            <span>Track competitor</span>
+          </Button>
+        </div>
       </SidebarContent>
 
       <SidebarFooter className="p-3 border-t border-sidebar-border">
-        <div className="flex items-center justify-between p-2.5 text-xs bg-sidebar-accent/50">
+        <div className="flex items-center justify-between p-2 text-xs bg-sidebar-accent/50">
           <div className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-muted-foreground text-xs">
-              Engine online
+            <span className="text-muted-foreground text-xs font-medium">
+              Live monitoring
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground font-mono">

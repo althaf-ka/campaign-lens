@@ -1,3 +1,4 @@
+import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -5,10 +6,15 @@ import {
   AlertCircleIcon,
   RefreshIcon,
   ArrowLeft01Icon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  Settings01Icon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@campaign-lens/ui/components/button";
+import { Badge } from "@campaign-lens/ui/components/badge";
 import { Skeleton } from "@campaign-lens/ui/components/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
+import { Card, CardHeader, CardTitle, CardContent } from "@campaign-lens/ui/components/card";
 import { competitorQueryOptions } from "../../features/competitors/api/competitor.queries.ts";
 import { CompetitorHeader } from "../../features/competitors/components/competitor-header.tsx";
 import { CurrentCampaignCard } from "../../features/competitors/components/current-campaign.tsx";
@@ -21,13 +27,14 @@ export const Route = createFileRoute("/competitors/$competitorId")({
 
 function CompetitorDetailPage() {
   const { competitorId } = Route.useParams();
+  const [showTechnicalDetails, setShowTechnicalDetails] = React.useState(false);
   const { data, isLoading, error, refetch } = useQuery(
     competitorQueryOptions(competitorId),
   );
 
   if (isLoading) {
     return (
-      <div className="space-y-8 pb-12">
+      <div className="space-y-8 pb-12 max-w-4xl">
         <div className="flex items-center justify-between pb-6 border-b border-border">
           <div className="space-y-2">
             <Skeleton className="h-8 w-48" />
@@ -40,20 +47,10 @@ function CompetitorDetailPage() {
           <Skeleton className="h-5 w-36" />
           <Skeleton className="h-7 w-3/4" />
           <Skeleton className="h-6 w-1/2" />
-          <div className="pt-4 border-t border-border flex justify-between items-center">
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-8 w-28" />
-          </div>
-        </div>
-
-        <div className="rounded-none border border-border bg-card p-6 space-y-3">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-10 w-full" />
         </div>
 
         <div className="space-y-4">
           <Skeleton className="h-5 w-36" />
-          <Skeleton className="h-28 w-full rounded-none" />
           <Skeleton className="h-28 w-full rounded-none" />
         </div>
       </div>
@@ -92,20 +89,59 @@ function CompetitorDetailPage() {
 
   const { competitor, currentSnapshot, sources, events } = data;
   const primarySource = sources[0];
+  const isDegraded = primarySource?.health === "degraded";
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Competitor Header */}
+    <div className="space-y-8 pb-12 max-w-4xl">
+      {/* 1. Competitor Header */}
       <CompetitorHeader competitor={competitor} primarySource={primarySource} />
 
-      {/* Current Campaign Extraction */}
-      <CurrentCampaignCard snapshot={currentSnapshot} isDegraded={primarySource?.health === "degraded"} />
+      {/* 2. Latest Verified Campaign */}
+      <CurrentCampaignCard snapshot={currentSnapshot} isDegraded={isDegraded} />
 
-      {/* Tracked Sources & Status */}
-      <SourceList sources={sources} />
-
-      {/* Semantic Timeline of Changes */}
+      {/* 3. Semantic Timeline of Campaign Changes */}
       <CampaignTimeline events={events} sources={sources} />
+
+      {/* 4. Collapsible System Health & Technical Details */}
+      <div className="pt-4 border-t border-border/60 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              System health
+            </span>
+            <Badge
+              variant="outline"
+              className={`text-[10px] font-mono ${
+                isDegraded
+                  ? "border-amber-500/30 text-amber-400 bg-amber-500/10"
+                  : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+              }`}
+            >
+              {isDegraded ? "Monitoring degraded · Self-healing queued" : "Monitoring active"}
+            </Badge>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+            className="text-xs text-muted-foreground hover:text-foreground gap-1.5 h-7 cursor-pointer"
+          >
+            <HugeiconsIcon
+              icon={showTechnicalDetails ? ArrowUp01Icon : ArrowDown01Icon}
+              strokeWidth={2}
+              className="size-3"
+            />
+            <span>{showTechnicalDetails ? "Hide technical details" : "View technical details"}</span>
+          </Button>
+        </div>
+
+        {showTechnicalDetails && (
+          <div className="space-y-4 pt-2">
+            <SourceList sources={sources} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

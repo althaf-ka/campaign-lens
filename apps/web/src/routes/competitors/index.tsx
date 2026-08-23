@@ -1,8 +1,10 @@
+import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@campaign-lens/ui/components/card";
 import { Badge } from "@campaign-lens/ui/components/badge";
 import { Button } from "@campaign-lens/ui/components/button";
+import { Input } from "@campaign-lens/ui/components/input";
 import { Skeleton } from "@campaign-lens/ui/components/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
 import { Separator } from "@campaign-lens/ui/components/separator";
@@ -16,6 +18,7 @@ import {
   Tag01Icon,
   LinkSquare01Icon,
   Target02Icon,
+  Search01Icon,
 } from "@hugeicons/core-free-icons";
 import { competitorsQueryOptions } from "../../features/competitors/api/competitor.queries.ts";
 
@@ -25,11 +28,17 @@ export const Route = createFileRoute("/competitors/")({
 
 function CompetitorsIndexPage() {
   const { data, isLoading, error, refetch } = useQuery(competitorsQueryOptions());
+  const [search, setSearch] = React.useState("");
 
   const competitors = data?.competitors ?? [];
+  const filtered = competitors.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.domain.toLowerCase().includes(search.toLowerCase()),
+  );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-4xl pb-12">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
@@ -56,21 +65,8 @@ function CompetitorsIndexPage() {
       {/* Content */}
       {isLoading ? (
         <div className="space-y-4">
-          <Card className="p-6 space-y-4">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-36" />
-                <Skeleton className="h-4 w-48" />
-              </div>
-              <Skeleton className="h-5 w-20" />
-            </div>
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-1/2" />
-            <div className="pt-4 border-t border-border flex justify-between items-center">
-              <Skeleton className="h-6 w-24" />
-              <Skeleton className="h-8 w-32" />
-            </div>
-          </Card>
+          <Skeleton className="h-32 w-full rounded-none" />
+          <Skeleton className="h-32 w-full rounded-none" />
         </div>
       ) : error ? (
         <Alert variant="destructive">
@@ -113,14 +109,29 @@ function CompetitorsIndexPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Showing {competitors.length} tracked competitor{competitors.length > 1 ? "s" : ""}
+          {/* Search bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                strokeWidth={2}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground"
+              />
+              <Input
+                placeholder="Search competitors by name or domain..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 text-xs h-9 rounded-none bg-card"
+              />
+            </div>
+
+            <span className="text-xs text-muted-foreground font-mono">
+              {filtered.length} competitor{filtered.length === 1 ? "" : "s"} tracked
             </span>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {competitors.map((comp) => (
+            {filtered.map((comp) => (
               <Card
                 key={comp.id}
                 className="hover:border-border transition-colors bg-card"
@@ -170,7 +181,7 @@ function CompetitorsIndexPage() {
                     variant="outline"
                     size="sm"
                     render={<Link to="/competitors/$competitorId" params={{ competitorId: comp.id }} />}
-                    className="gap-1.5 text-xs w-full sm:w-auto"
+                    className="gap-1.5 text-xs w-full sm:w-auto cursor-pointer"
                   >
                     <span>View Intelligence</span>
                     <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />

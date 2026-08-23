@@ -24,6 +24,19 @@ import {
 } from "@hugeicons/core-free-icons";
 import { createCompetitor } from "../../features/competitors/api/competitor.queries.ts";
 
+const SOURCE_TYPE_ITEMS = [
+  { label: "Homepage Campaign", value: "homepage" },
+  { label: "Pricing Page", value: "pricing" },
+];
+
+const INTERVAL_ITEMS = [
+  { label: "Every 15 minutes", value: 15 },
+  { label: "Every 30 minutes", value: 30 },
+  { label: "Every hour", value: 60 },
+  { label: "Every 6 hours", value: 360 },
+  { label: "Daily", value: 1440 },
+];
+
 export const Route = createFileRoute("/competitors/new")({
   component: TrackCompetitorPage,
 });
@@ -217,6 +230,7 @@ function TrackCompetitorPage() {
                     Source Type
                   </label>
                   <Select
+                    items={SOURCE_TYPE_ITEMS}
                     value={sourceType}
                     onValueChange={(val) => {
                       if (val) setSourceType(val as "homepage" | "pricing");
@@ -228,8 +242,11 @@ function TrackCompetitorPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="homepage">Homepage Campaign</SelectItem>
-                        <SelectItem value="pricing">Pricing Page</SelectItem>
+                        {SOURCE_TYPE_ITEMS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
                       </SelectGroup>
                     </SelectContent>
                   </Select>
@@ -240,9 +257,10 @@ function TrackCompetitorPage() {
                     Monitoring Interval
                   </label>
                   <Select
-                    value={String(intervalMinutes)}
+                    items={INTERVAL_ITEMS}
+                    value={intervalMinutes}
                     onValueChange={(val) => {
-                      if (val) setIntervalMinutes(Number(val));
+                      if (val !== null && val !== undefined) setIntervalMinutes(Number(val));
                     }}
                     disabled={isSubmitting}
                   >
@@ -251,11 +269,11 @@ function TrackCompetitorPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="15">Every 15 minutes</SelectItem>
-                        <SelectItem value="30">Every 30 minutes</SelectItem>
-                        <SelectItem value="60">Every hour</SelectItem>
-                        <SelectItem value="360">Every 6 hours</SelectItem>
-                        <SelectItem value="1440">Daily</SelectItem>
+                        {INTERVAL_ITEMS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
                       </SelectGroup>
                     </SelectContent>
                   </Select>
