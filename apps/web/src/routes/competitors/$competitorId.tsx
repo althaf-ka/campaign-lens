@@ -99,7 +99,7 @@ function CompetitorDetailPage() {
       <CompetitorHeader competitor={competitor} primarySource={primarySource} />
 
       {/* Current Campaign Extraction */}
-      <CurrentCampaignCard snapshot={currentSnapshot} />
+      <CurrentCampaignCard snapshot={currentSnapshot} isDegraded={primarySource?.health === "degraded"} />
 
       {/* Tracked Sources & Status */}
       <SourceList sources={sources} />

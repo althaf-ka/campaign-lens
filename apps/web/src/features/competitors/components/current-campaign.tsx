@@ -6,13 +6,15 @@ import {
   Tag01Icon,
   CheckmarkCircle01Icon,
   ArrowUpRight01Icon,
+  Shield01Icon,
 } from "@hugeicons/core-free-icons";
 
 interface CurrentCampaignProps {
   snapshot: CampaignSnapshot | null;
+  isDegraded?: boolean;
 }
 
-export function CurrentCampaignCard({ snapshot }: CurrentCampaignProps) {
+export function CurrentCampaignCard({ snapshot, isDegraded }: CurrentCampaignProps) {
   if (!snapshot) {
     return (
       <Card className="border-dashed p-8 text-center bg-muted/20">
@@ -34,12 +36,24 @@ export function CurrentCampaignCard({ snapshot }: CurrentCampaignProps) {
   return (
     <Card className="bg-card">
       <CardHeader className="py-4 px-6 pb-2">
-        <CardTitle className="text-base font-semibold text-foreground">
-          Current campaign
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold text-foreground">
+            Current campaign
+          </CardTitle>
+          <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+            <HugeiconsIcon icon={Shield01Icon} strokeWidth={2} className="size-3.5 text-emerald-500" />
+            <span>Verified baseline</span>
+          </div>
+        </div>
       </CardHeader>
 
       <CardContent className="p-6 pt-2 space-y-6">
+        {isDegraded && (
+          <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
+            <span className="font-semibold">Integrity Guard Active:</span> Website DOM changed on recent scrape. CampaignLens preserved the last verified campaign data and prevented false changes.
+          </div>
+        )}
+
         <div className="space-y-3">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-snug">
             {snapshot.headline ?? "No headline extracted"}

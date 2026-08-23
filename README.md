@@ -1,160 +1,158 @@
-# Turborepo starter
+# CampaignLens
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Continuous Competitor Campaign Intelligence with Guarded Self-Healing Scrapers**
 
-## Using this example
+> **"Extraction absence is not business absence. CampaignLens never converts missing scraper data into a campaign change."**
 
-Run the following command:
+CampaignLens monitors competitors' public marketing campaigns (pricing, headline, promotional offers, guarantees, and primary call-to-action) without confusing website layout drift with genuine market changes. 
 
-```sh
-npx create-turbo@latest
+When a competitor changes its real business offering, CampaignLens detects and records a semantic campaign event in a chronological timeline. When a competitor redesigns their DOM structure and selectors break, CampaignLens guards historical data, flags the source as degraded, and triggers autonomous Bright Data Scraper Studio Self-Healing to repair the collector without corrupting the historical record.
+
+---
+
+## Live Deployments
+
+- **CampaignLens Web App**: [https://campaign-lens.demostore.workers.dev](https://campaign-lens.demostore.workers.dev)
+- **CampaignLens API Worker**: [https://campaign-lens-api.demostore.workers.dev](https://campaign-lens-api.demostore.workers.dev)
+- **Demo Storefront (Lumora)**: [https://lumora-58u.pages.dev](https://lumora-58u.pages.dev)
+
+---
+
+## The Core Problem
+
+Most web scraping pipelines for competitor intelligence suffer from a fundamental reliability flaw:
+
+```text
+Competitor redesigns website DOM
+               ↓
+Scraper fails / returns partial nulls
+               ↓
+Naïve diff engine assumes values dropped to null
+               ↓
+FAKER ALERTS: "Price dropped from ₹2,299 to $0", "Offer removed"
 ```
 
-## What's inside?
+CampaignLens eliminates this flaw through a strict **Extraction Integrity Contract**:
+1. **Schema Validation**: Guarantees JSON structure via strict Zod schemas.
+2. **Extraction Integrity Layer**: Verifies required campaign fields are physically present.
+3. **Deterministic Diff Engine**: Only calculates semantic diffs against verified complete snapshots.
+4. **Guarded Self-Healing**: Automatically repairs broken collectors using Bright Data's AI Self-Healing while preserving the same Collector ID and historical timeline.
 
-This Turborepo includes the following packages/apps:
+---
 
-### Apps and Packages
+## Architecture
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@campaign-lens/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@campaign-lens/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@campaign-lens/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```text
+                         Cloudflare Cron (`*/30 * * * *`)
+                                       │
+                                       ▼
+                       runDueSources (Bounded Batch)
+                                       │
+                                       ▼
+                                 monitorSource
+                                       │
+                        ┌──────────────┴──────────────┐
+                        ▼                             ▼
+                    runSource                     healSource
+                 (Collection)                     (Recovery)
+                        │                             │
+                        ▼                             ▼
+                 Bright Data API               Bright Data AI
+                 Scraper Studio                 Self-Healing
+                        │                             │
+                        ▼                             ▼
+              Zod Schema Validation           AI Preview Validation
+                        │                             │
+                        ▼                             ▼
+               Extraction Integrity              Approval Gate
+                        │                             │
+             ┌──────────┴──────────┐                  ▼
+             ▼                     ▼          Rerun Same Collector
+          healthy               degraded              │
+             │                     │                  ▼
+             ▼                     ▼             Source Healed
+          Snapshot             Preserve               │
+             │                 Baseline               ▼
+             ▼                     │          0 Fake Campaign Changes
+     Deterministic Diff            ▼
+             │               Trigger Repair
+             ▼
+      Campaign Timeline
 ```
 
-Without global `turbo`, use your package manager:
+---
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+## Monorepo Architecture
+
+CampaignLens is built as a pnpm + Turborepo monorepo:
+
+```text
+campaign-lens/
+├── apps/
+│   ├── api/            # Cloudflare Worker + Hono backend (REST API & Cron Scheduler)
+│   ├── web/            # TanStack Start SSR web frontend with shadcn/ui primitives
+│   └── demo-store/     # Next.js static e-commerce storefront (Lumora) for live failure testing
+├── packages/
+│   ├── domain/         # Pure domain schemas, deterministic diff engine, and integrity rules
+│   ├── brightdata/     # Clean Bright Data client, real-time polling, and Self-Healing adapter
+│   ├── db/             # Drizzle ORM schema, PostgreSQL queries, and database client
+│   └── ui/             # Shared UI components styled with Tailwind CSS
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Key Invariants
 
-```sh
-turbo build --filter=docs
+1. **Missing extraction $\neq$ campaign change**: A broken or partial scrape never inserts a snapshot and never emits diff events.
+2. **Collector ID Stability**: AI self-healing repairs the existing Scraper Studio collector template in place (`c_mt5kun512itlsaiw1s`); it never mutates collector IDs or splits history.
+3. **Guarded Recovery Policy**: AI self-healing is triggered only for DOM/selector drift (`wait_element_timeout`, integrity failure). Upstream auth errors, rate limits, or transient 503 outages are handled gracefully as retryable without corrupting state.
+4. **Zero-Event Recovery**: When a broken scraper is repaired and extracts the original campaign data, exactly `0` new campaign events are generated.
+
+---
+
+## Automated Test Suite
+
+CampaignLens includes 44 automated unit tests covering all edge cases with zero live API calls:
+
+```bash
+pnpm test
 ```
 
-Without global `turbo`:
+- **`@campaign-lens/domain`** (19 tests): Zod validation, whitespace normalization, multi-field diffing, source-specific integrity policies.
+- **`@campaign-lens/brightdata`** (8 tests): Real-time triggering, polling, template refactoring, HTTP 503 handling, automated approval.
+- **`@campaign-lens/db`** (2 tests): Database client creation and format verification.
+- **`api`** (15 tests):
+  - Recovery policy (`shouldAttemptHealing` with auth, rate limits, timeouts)
+  - `monitorSource` lifecycle (healthy, degraded, recovered, unavailable)
+  - `healSource` safety gates (preview validation, schema check, approval)
+  - `runDueSources` bounded scheduling and fault isolation
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js >= 20
+- pnpm >= 9
+- PostgreSQL database (e.g. Neon)
+- Bright Data API Token
+
+### Setup
+```bash
+# 1. Clone repository
+git clone https://github.com/althafka/campaign-lens.git
+cd campaign-lens
+
+# 2. Install dependencies
+pnpm install
+
+# 3. Configure environment variables in apps/api/.dev.vars
+DATABASE_URL=postgresql://...
+BRIGHT_DATA_API_TOKEN=...
+
+# 4. Run tests
+pnpm test
+
+# 5. Start development servers
+pnpm dev
 ```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)

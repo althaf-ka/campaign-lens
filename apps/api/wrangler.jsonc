@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "api",
+  "name": "campaign-lens-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-23",
   "triggers": {

@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@campaign-lens/ui/components/card";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { LinkSquare01Icon } from "@hugeicons/core-free-icons";
+import { LinkSquare01Icon, AlertCircleIcon } from "@hugeicons/core-free-icons";
 import type { TrackedSource } from "../types.ts";
 import { SourceHealthBadge } from "./source-health-badge.tsx";
 
@@ -25,6 +25,8 @@ export function SourceList({ sources }: SourceListProps) {
               })
             : "Pending";
 
+          const isDegraded = source.health === "degraded";
+
           return (
             <div
               key={source.id}
@@ -45,6 +47,12 @@ export function SourceList({ sources }: SourceListProps) {
                     <HugeiconsIcon icon={LinkSquare01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
                   </a>
                 </div>
+                {isDegraded && (
+                  <div className="flex items-center gap-1.5 pt-0.5 text-[11px] text-amber-500 font-medium">
+                    <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3 shrink-0" />
+                    <span>Extraction degraded after website structure changed · Self-healing queued</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-4 self-start sm:self-auto">
