@@ -34,7 +34,7 @@ function CompetitorDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 pb-12 max-w-4xl">
+      <div className="space-y-8 pb-12 max-w-4xl mx-auto">
         <div className="flex items-center justify-between pb-6 border-b border-border">
           <div className="space-y-2">
             <Skeleton className="h-8 w-48" />
@@ -92,7 +92,7 @@ function CompetitorDetailPage() {
   const isDegraded = primarySource?.health === "degraded";
 
   return (
-    <div className="space-y-8 pb-12 max-w-4xl">
+    <div className="space-y-8 pb-12 max-w-4xl mx-auto">
       {/* 1. Competitor Header */}
       <CompetitorHeader competitor={competitor} primarySource={primarySource} />
 

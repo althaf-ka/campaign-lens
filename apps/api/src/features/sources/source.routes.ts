@@ -1,5 +1,13 @@
 import { Hono } from "hono";
-import { BrightDataError } from "@campaign-lens/brightdata";
+import { z } from "zod";
+import {
+  BrightDataError,
+  runBrightDataCollector,
+} from "@campaign-lens/brightdata";
+import {
+  campaignSnapshotSchema,
+  evaluateSnapshotIntegrity,
+} from "@campaign-lens/domain";
 import { createDb, seedLumora, getSourceById } from "@campaign-lens/db";
 
 import { runSource } from "./run-source.ts";
@@ -7,6 +15,157 @@ import { healSource } from "./heal-source.ts";
 import { monitorSource } from "./monitor-source.ts";
 
 export const sourceRoutes = new Hono<{ Bindings: CloudflareBindings }>();
+
+const testConnectionSchema = z.object({
+  url: z.string().url("Must be a valid HTTP or HTTPS URL"),
+  collectorId: z
+    .string()
+    .min(3)
+    .regex(/^c_[a-zA-Z0-9]+$/, "Collector ID must start with 'c_'"),
+  sourceType: z.enum(["homepage", "pricing"]).default("homepage"),
+});
+
+/**
+ * Diagnostic endpoint: Validates a Scraper Studio collector against a target URL
+ * WITHOUT persistence side-effects or automated recovery triggering.
+ */
+sourceRoutes.post("/sources/test-connection", async (c) => {
+  const apiToken = c.env.BRIGHT_DATA_API_TOKEN;
+  if (!apiToken) {
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message:
+            "BRIGHT_DATA_API_TOKEN is not configured in worker bindings.",
+        },
+      },
+      500,
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(
+      {
+        error: {
+          code: "INVALID_JSON",
+          message: "Request body must be valid JSON.",
+        },
+      },
+      400,
+    );
+  }
+
+  const parseResult = testConnectionSchema.safeParse(body);
+  if (!parseResult.success) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid test connection input.",
+          issues: parseResult.error.issues,
+        },
+      },
+      400,
+    );
+  }
+
+  const { url, collectorId, sourceType } = parseResult.data;
+
+  try {
+    const rawData = await runBrightDataCollector({
+      apiToken,
+      collectorId,
+      url,
+    });
+
+    const validation = campaignSnapshotSchema.safeParse(rawData);
+    if (!validation.success) {
+      return c.json(
+        {
+          status: "incompatible",
+          reason: "schema_validation_failed",
+          message:
+            "Scraper Studio collector output does not match CampaignLens schema.",
+          issues: validation.error.issues,
+        },
+        200,
+      );
+    }
+
+    const snapshot = validation.data;
+    const integrity = evaluateSnapshotIntegrity({
+      snapshot,
+      sourceType,
+    });
+
+    if (integrity.status === "degraded") {
+      return c.json(
+        {
+          status: "incompatible",
+          reason: "extraction_integrity_failed",
+          message: `Collector output is missing required fields: ${integrity.missing.join(", ")}`,
+          missing: integrity.missing,
+          preview: {
+            headline: snapshot.headline,
+            offer: snapshot.offer,
+            pricing: {
+              amount: snapshot.pricing.amount,
+              currency: snapshot.pricing.currency,
+            },
+            primaryCta: {
+              label: snapshot.primaryCta.label,
+            },
+          },
+        },
+        200,
+      );
+    }
+
+    return c.json(
+      {
+        status: "compatible",
+        preview: {
+          headline: snapshot.headline,
+          offer: snapshot.offer,
+          pricing: {
+            amount: snapshot.pricing.amount,
+            currency: snapshot.pricing.currency,
+          },
+          primaryCta: {
+            label: snapshot.primaryCta.label,
+          },
+        },
+      },
+      200,
+    );
+  } catch (error) {
+    if (error instanceof BrightDataError) {
+      return c.json(
+        {
+          status: "incompatible",
+          reason: error.errorCode || "crawler_execution_error",
+          message: error.message,
+        },
+        200,
+      );
+    }
+
+    const genericMsg =
+      error instanceof Error ? error.message : String(error);
+    return c.json(
+      {
+        status: "incompatible",
+        reason: "connection_error",
+        message: genericMsg,
+      },
+      200,
+    );
+  }
+});
 
 /**
  * Triggers a scrape and diff analysis for a specific source ID.

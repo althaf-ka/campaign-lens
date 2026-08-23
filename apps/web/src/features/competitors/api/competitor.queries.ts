@@ -34,6 +34,31 @@ export interface CreateCompetitorResponse {
   initialMonitor: unknown;
 }
 
+export interface TestConnectionPayload {
+  url: string;
+  collectorId: string;
+  sourceType: string;
+}
+
+export interface TestConnectionResponse {
+  status: "compatible" | "incompatible";
+  reason?: string;
+  message?: string;
+  missing?: string[];
+  preview?: {
+    headline: string | null;
+    offer: string | null;
+    pricing: {
+      amount: number | null;
+      currency: string | null;
+    };
+    primaryCta: {
+      label: string | null;
+    };
+  };
+  issues?: unknown[];
+}
+
 export async function fetchCompetitors(): Promise<CompetitorListResponse> {
   const res = await fetch(`${API_BASE_URL}/competitors`);
   if (!res.ok) {
@@ -74,6 +99,27 @@ export async function createCompetitor(payload: CreateCompetitorPayload): Promis
     const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
     throw new Error(
       errorData?.error?.message || `Failed to track competitor: HTTP ${res.status}`,
+    );
+  }
+
+  return res.json();
+}
+
+export async function testScraperConnection(
+  payload: TestConnectionPayload,
+): Promise<TestConnectionResponse> {
+  const res = await fetch(`${API_BASE_URL}/sources/test-connection`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(
+      errorData?.error?.message || `Test connection failed: HTTP ${res.status}`,
     );
   }
 

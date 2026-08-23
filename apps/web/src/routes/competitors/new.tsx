@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@campaign-lens/ui/components/card";
 import { Input } from "@campaign-lens/ui/components/input";
 import { Button } from "@campaign-lens/ui/components/button";
+import { Badge } from "@campaign-lens/ui/components/badge";
 import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
 import { Separator } from "@campaign-lens/ui/components/separator";
 import {
@@ -20,9 +21,15 @@ import {
   AlertCircleIcon,
   RefreshIcon,
   CheckmarkCircle01Icon,
-  Store01Icon,
+  PlayIcon,
+  Tag01Icon,
+  Alert02Icon,
 } from "@hugeicons/core-free-icons";
-import { createCompetitor } from "../../features/competitors/api/competitor.queries.ts";
+import {
+  createCompetitor,
+  testScraperConnection,
+  type TestConnectionResponse,
+} from "../../features/competitors/api/competitor.queries.ts";
 
 const SOURCE_TYPE_ITEMS = [
   { label: "Homepage Campaign", value: "homepage" },
@@ -55,6 +62,58 @@ function TrackCompetitorPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Test Scraper Connection state
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "compatible" | "incompatible">("idle");
+  const [testResult, setTestResult] = useState<TestConnectionResponse | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const handleUrlChange = (val: string) => {
+    setSourceUrl(val);
+    setTestStatus("idle");
+    setTestResult(null);
+  };
+
+  const handleCollectorIdChange = (val: string) => {
+    setCollectorId(val);
+    setTestStatus("idle");
+    setTestResult(null);
+  };
+
+  const handleSourceTypeChange = (val: "homepage" | "pricing") => {
+    setSourceType(val);
+    setTestStatus("idle");
+    setTestResult(null);
+  };
+
+  const handleTestConnection = async () => {
+    if (!sourceUrl.trim()) {
+      setErrorMessage("Please enter a public URL to test.");
+      return;
+    }
+    if (!collectorId.trim() || !collectorId.startsWith("c_")) {
+      setErrorMessage("Collector ID must start with 'c_' (e.g. c_mt5kun512itlsaiw1s).");
+      return;
+    }
+
+    setTestStatus("testing");
+    setTestError(null);
+    setErrorMessage(null);
+
+    try {
+      const res = await testScraperConnection({
+        url: sourceUrl.trim(),
+        collectorId: collectorId.trim(),
+        sourceType,
+      });
+
+      setTestResult(res);
+      setTestStatus(res.status);
+    } catch (err) {
+      setTestStatus("incompatible");
+      setTestError(err instanceof Error ? err.message : "Connection test failed.");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,8 +151,9 @@ function TrackCompetitorPage() {
         },
       });
 
-      // Invalidate competitors list cache
+      // Invalidate competitors and attention queries
       await queryClient.invalidateQueries({ queryKey: ["competitors"] });
+      await queryClient.invalidateQueries({ queryKey: ["attention"] });
 
       // Navigate to competitor detail page
       navigate({
@@ -218,7 +278,7 @@ function TrackCompetitorPage() {
                   type="url"
                   placeholder="https://lumora-58u.pages.dev/"
                   value={sourceUrl}
-                  onChange={(e) => setSourceUrl(e.target.value)}
+                  onChange={(e) => handleUrlChange(e.target.value)}
                   disabled={isSubmitting}
                   required
                 />
@@ -233,7 +293,7 @@ function TrackCompetitorPage() {
                     items={SOURCE_TYPE_ITEMS}
                     value={sourceType}
                     onValueChange={(val) => {
-                      if (val) setSourceType(val as "homepage" | "pricing");
+                      if (val) handleSourceTypeChange(val as "homepage" | "pricing");
                     }}
                     disabled={isSubmitting}
                   >
@@ -280,21 +340,117 @@ function TrackCompetitorPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">
-                  Scraper Studio Collector ID <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  placeholder="e.g. c_mt5kun512itlsaiw1s"
-                  value={collectorId}
-                  onChange={(e) => setCollectorId(e.target.value)}
-                  disabled={isSubmitting}
-                  className="font-mono"
-                  required
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Use the Collector ID from your custom Bright Data Scraper Studio scraper.
-                </p>
+              <div className="space-y-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">
+                    Scraper Studio Collector ID <span className="text-destructive">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="e.g. c_mt5kun512itlsaiw1s"
+                      value={collectorId}
+                      onChange={(e) => handleCollectorIdChange(e.target.value)}
+                      disabled={isSubmitting}
+                      className="font-mono flex-1"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestConnection}
+                      disabled={isSubmitting || testStatus === "testing" || !collectorId.trim() || !sourceUrl.trim()}
+                      className="gap-1.5 text-xs shrink-0 cursor-pointer h-9 px-3"
+                    >
+                      {testStatus === "testing" ? (
+                        <>
+                          <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5 animate-spin" />
+                          <span>Testing collector...</span>
+                        </>
+                      ) : (
+                        <>
+                          <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3 text-primary" />
+                          <span>Test connection</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Use the Collector ID from your custom Bright Data Scraper Studio scraper.
+                  </p>
+                </div>
+
+                {/* Test Connection Results Card */}
+                {testStatus === "compatible" && testResult?.preview && (
+                  <div className="p-3.5 border border-emerald-500/30 bg-emerald-500/5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold">
+                        <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-4" />
+                        <span>Collector connected</span>
+                      </div>
+                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px] font-mono">
+                        Valid Schema & Integrity
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                      <div className="flex items-center gap-1 text-foreground">
+                        <span className="text-emerald-500">✓</span> Headline
+                      </div>
+                      <div className="flex items-center gap-1 text-foreground">
+                        <span className="text-emerald-500">✓</span> Offer
+                      </div>
+                      <div className="flex items-center gap-1 text-foreground">
+                        <span className="text-emerald-500">✓</span> Price
+                      </div>
+                      <div className="flex items-center gap-1 text-foreground">
+                        <span className="text-emerald-500">✓</span> CTA
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-emerald-500/20 text-xs space-y-0.5">
+                      <div className="font-bold text-foreground">
+                        ₹{testResult.preview.pricing.amount?.toLocaleString("en-IN") ?? "N/A"}
+                      </div>
+                      <div className="text-muted-foreground truncate">
+                        {testResult.preview.offer ?? testResult.preview.headline}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {testStatus === "incompatible" && (
+                  <div className="p-3.5 border border-amber-500/30 bg-amber-500/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold">
+                        <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4" />
+                        <span>Connection needs attention</span>
+                      </div>
+                      <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-[10px] font-mono">
+                        Schema / Integrity Gap
+                      </Badge>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      {testResult?.message || testError || "Scraper output is missing required fields."}
+                    </p>
+
+                    {testResult?.missing && testResult.missing.length > 0 && (
+                      <div className="space-y-1 text-xs text-amber-400">
+                        {testResult.missing.map((m) => (
+                          <div key={m} className="flex items-center gap-1">
+                            <span>•</span>
+                            <span>{formatMissingFieldLabel(m)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-muted-foreground/80 italic pt-1 border-t border-amber-500/20">
+                      Open your Scraper Studio collector and verify its output schema.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -333,4 +489,19 @@ function TrackCompetitorPage() {
       </form>
     </div>
   );
+}
+
+function formatMissingFieldLabel(field: string): string {
+  switch (field) {
+    case "pricing.amount":
+      return "Price amount was not detected";
+    case "primaryCta.label":
+      return "Primary CTA label was not detected";
+    case "headline":
+      return "Headline positioning was not detected";
+    case "offer":
+      return "Promotional offer was not detected";
+    default:
+      return `Missing field: ${field}`;
+  }
 }
