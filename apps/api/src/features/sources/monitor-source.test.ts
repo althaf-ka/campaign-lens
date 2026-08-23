@@ -115,8 +115,12 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
               createdEventsCount += vals.length;
               return vals.map((v, i) => ({ id: `event-${i}`, ...v }));
             }
-            createdSnapshotsCount++;
-            return [{ id: "snap-uuid-new", ...(vals as Record<string, unknown>) }];
+            const record = vals as Record<string, unknown>;
+            if (record.headline !== undefined || record.data !== undefined) {
+              createdSnapshotsCount++;
+              return [{ id: "snap-uuid-new", ...record }];
+            }
+            return [{ id: "act-uuid-new", ...record }];
           },
         }),
       }),
@@ -432,5 +436,54 @@ describe("monitorSource & Scheduled Monitoring Orchestration", () => {
       // Both sources were processed independently
       assert.ok(summary.succeeded >= 1);
     });
+
+    it("14. crawler wait_element_timeout error preserves error_code and triggers healSource attempt", async () => {
+      const { mockDb } = createMockDb();
+      let healRequested = false;
+
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const urlStr = String(input);
+        if (urlStr.includes("trigger_immediate")) {
+          return new Response(JSON.stringify({ response_id: "res_crawler_err" }), { status: 200 });
+        }
+        if (urlStr.includes("get_result")) {
+          return new Response(
+            JSON.stringify([
+              {
+                input: { url: "https://lumora-58u.pages.dev/" },
+                error: 'Crawler error: waiting for selector "section.hero" failed: timeout 30000ms exceeded',
+                error_code: "wait_element_timeout",
+              },
+            ]),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (urlStr.includes("refactor_template")) {
+          healRequested = true;
+          return new Response(
+            JSON.stringify({
+              status: "heal_trigger_failed",
+              error: "Self healing tool is temporarily disabled",
+            }),
+            { status: 503 },
+          );
+        }
+        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      }) as typeof fetch;
+
+      const now = new Date("2026-08-23T12:00:00Z");
+      const result = await monitorSource({
+        sourceId: "source-uuid-1111",
+        db: mockDb,
+        apiToken: mockToken,
+        now,
+      });
+
+      assert.equal(result.status, "degraded");
+      assert.equal(healRequested, true); // Verified that healing was triggered on wait_element_timeout
+      assert.equal(mockDb.getCreatedEventsCount(), 0); // Invariant: no false events emitted
+      assert.equal(mockDb.getCreatedSnapshotsCount(), 0); // Invariant: no broken snapshot stored
+    });
   });
 });
+

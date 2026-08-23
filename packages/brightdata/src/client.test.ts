@@ -1,7 +1,8 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { BrightDataClient } from "./client.ts";
-import { SelfHealingUnavailableError } from "./errors.ts";
+import { runBrightDataCollector } from "./run-collector.ts";
+import { BrightDataError, SelfHealingUnavailableError } from "./errors.ts";
 
 describe("BrightDataClient", () => {
   const originalFetch = globalThis.fetch;
@@ -322,6 +323,44 @@ describe("BrightDataClient", () => {
         message: true,
         auto_save: true,
       });
+    });
+
+    it("9. crawler error payload with wait_element_timeout throws typed BrightDataError with errorCode", async () => {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const urlStr = String(input);
+        if (urlStr.includes("trigger_immediate")) {
+          return new Response(JSON.stringify({ response_id: "res_timeout_test" }), { status: 200 });
+        }
+        if (urlStr.includes("get_result")) {
+          return new Response(
+            JSON.stringify([
+              {
+                input: { url: testUrl },
+                error: 'Crawler error: waiting for selector "section.hero" failed: timeout 30000ms exceeded',
+                error_code: "wait_element_timeout",
+              },
+            ]),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      }) as typeof fetch;
+
+      await assert.rejects(
+        async () => {
+          await runBrightDataCollector({
+            apiToken: mockToken,
+            collectorId,
+            url: testUrl,
+          });
+        },
+        (err: unknown) => {
+          assert.ok(err instanceof BrightDataError);
+          assert.equal(err.errorCode, "wait_element_timeout");
+          assert.ok(err.message.includes("waiting for selector"));
+          return true;
+        },
+      );
     });
   });
 });

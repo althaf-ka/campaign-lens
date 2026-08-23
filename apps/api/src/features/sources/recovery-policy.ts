@@ -34,9 +34,10 @@ export function shouldAttemptHealing(
 
   // 2. If runResult is degraded due to extraction integrity -> HEAL
   if (runResult?.status === "degraded") {
-    const missingList = runResult.missing && runResult.missing.length > 0
-      ? runResult.missing.join(", ")
-      : "required fields";
+    const missingList =
+      runResult.missing && runResult.missing.length > 0
+        ? runResult.missing.join(", ")
+        : "required fields";
     return {
       shouldHeal: true,
       reason: `extraction_integrity_degraded (missing fields: ${missingList})`,
@@ -51,17 +52,29 @@ export function shouldAttemptHealing(
     };
   }
 
-  // 4. If error was thrown, inspect error properties
+  // 4. If error was thrown, inspect error properties and sanitized errorCode
   if (error) {
     if (error instanceof BrightDataError) {
       const statusCode = error.statusCode;
+      const errorCode =
+        error.errorCode ||
+        (error.details as Record<string, unknown> | undefined)?.errorCode;
       const msg = error.message.toLowerCase();
 
       // Explicit DISALLOW: Authentication, Rate Limit, Service Outage
-      if (statusCode === 401 || statusCode === 403 || msg.includes("unauthorized") || msg.includes("forbidden")) {
+      if (
+        statusCode === 401 ||
+        statusCode === 403 ||
+        msg.includes("unauthorized") ||
+        msg.includes("forbidden")
+      ) {
         return { shouldHeal: false, reason: "authentication_error" };
       }
-      if (statusCode === 429 || msg.includes("rate limit") || msg.includes("too many requests")) {
+      if (
+        statusCode === 429 ||
+        msg.includes("rate limit") ||
+        msg.includes("too many requests")
+      ) {
         return { shouldHeal: false, reason: "rate_limit_exceeded" };
       }
       if (
@@ -73,12 +86,19 @@ export function shouldAttemptHealing(
       ) {
         return { shouldHeal: false, reason: "service_unavailable" };
       }
-      if (msg.includes("network error") || msg.includes("fetch failed") || msg.includes("econnrefused")) {
+      if (
+        msg.includes("network error") ||
+        msg.includes("fetch failed") ||
+        msg.includes("econnrefused")
+      ) {
         return { shouldHeal: false, reason: "network_error" };
       }
 
       // Explicit ALLOW: Selector timeout / wait element timeout / crawler selector errors
       if (
+        errorCode === "wait_element_timeout" ||
+        errorCode === "selector_timeout" ||
+        errorCode === "element_not_found" ||
         msg.includes("wait_element_timeout") ||
         msg.includes("waiting for selector") ||
         msg.includes("element not found") ||
@@ -89,11 +109,14 @@ export function shouldAttemptHealing(
       }
     }
 
-    const genericMsg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+    const genericMsg = (
+      error instanceof Error ? error.message : String(error)
+    ).toLowerCase();
     if (
       genericMsg.includes("wait_element_timeout") ||
       genericMsg.includes("waiting for selector") ||
-      genericMsg.includes("element not found")
+      genericMsg.includes("element not found") ||
+      genericMsg.includes("crawler error")
     ) {
       return { shouldHeal: true, reason: "wait_element_timeout" };
     }

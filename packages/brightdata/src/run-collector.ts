@@ -15,7 +15,7 @@ export interface RunCollectorInput {
  * and extracts the raw first record returned by the collector.
  *
  * Throws a BrightDataError if the network request fails, polling times out,
- * or the collector returns no valid records.
+ * or the collector returns an error record (e.g. wait_element_timeout).
  */
 export async function runBrightDataCollector(
   input: RunCollectorInput,
@@ -43,17 +43,50 @@ export async function runBrightDataCollector(
     maxAttempts: input.maxAttempts,
   });
 
-  // 3. Extract the first record from the array or object
+  // 3. Extract the first record from the array or object and detect crawler errors
   if (Array.isArray(rawData)) {
     if (rawData.length === 0) {
       throw new BrightDataError(
         "Bright Data collector returned an empty result array.",
       );
     }
-    return rawData[0];
+    const firstRecord = rawData[0];
+    if (firstRecord && typeof firstRecord === "object") {
+      const rec = firstRecord as Record<string, unknown>;
+      if (rec.error || rec.error_code) {
+        const errorCode =
+          typeof rec.error_code === "string"
+            ? rec.error_code
+            : "collector_execution_error";
+        const errorMsg =
+          typeof rec.error === "string"
+            ? rec.error
+            : `Collector execution error: ${errorCode}`;
+        throw new BrightDataError(errorMsg, {
+          errorCode,
+          details: { errorCode, error: errorMsg },
+        });
+      }
+    }
+    return firstRecord;
   }
 
   if (rawData && typeof rawData === "object") {
+    const rec = rawData as Record<string, unknown>;
+    if (rec.error || rec.error_code) {
+      const errorCode =
+        typeof rec.error_code === "string"
+          ? rec.error_code
+          : "collector_execution_error";
+      const errorMsg =
+        typeof rec.error === "string"
+          ? rec.error
+          : `Collector execution error: ${errorCode}`;
+      throw new BrightDataError(errorMsg, {
+        errorCode,
+        details: { errorCode, error: errorMsg },
+      });
+    }
     return rawData;
   }
 
