@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "imports": {
+    "#components/*": "./src/components/*",
+    "#lib/*": "./src/lib/*",
+    "#hooks/*": "./src/hooks/*",
     "#/*": "./src/*"
   },
   "scripts": {
@@ -13,16 +16,24 @@
     "deploy": "pnpm run build && wrangler deploy"
   },
   "dependencies": {
+    "@base-ui/react": "latest",
     "@campaign-lens/domain": "workspace:*",
+    "@campaign-lens/ui": "workspace:*",
+    "@hugeicons/core-free-icons": "latest",
+    "@hugeicons/react": "latest",
+    "@radix-ui/react-slot": "^1.1.2",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-query": "^5.66.9",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",
-    "lucide-react": "^0.475.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hugeicons-react": "^0.3.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {

@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, RefreshCw, ArrowLeft } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AlertCircleIcon,
+  RefreshIcon,
+  ArrowLeft01Icon,
+} from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
+import { Button } from "@campaign-lens/ui/components/button";
+import { Skeleton } from "@campaign-lens/ui/components/skeleton";
 import { competitorQueryOptions } from "../../features/competitors/api/competitor.queries.ts";
 import { CompetitorHeader } from "../../features/competitors/components/competitor-header.tsx";
 import { CurrentCampaignCard } from "../../features/competitors/components/current-campaign.tsx";
@@ -20,44 +27,41 @@ function CompetitorDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
-        <div className="animate-pulse space-y-6">
-          <div className="h-20 bg-zinc-900 rounded-xl" />
-          <div className="h-64 bg-zinc-900 rounded-xl" />
-          <div className="h-40 bg-zinc-900 rounded-xl" />
-          <div className="h-96 bg-zinc-900 rounded-xl" />
-        </div>
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <Skeleton className="h-20 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-36 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
-        <div className="mx-auto w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-4">
-          <AlertCircle className="h-6 w-6" />
+      <div className="mx-auto max-w-xl px-4 py-16 text-center">
+        <div className="mx-auto size-12 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive mb-4">
+          <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-6" />
         </div>
-        <h2 className="text-xl font-bold text-zinc-100 font-editorial">
+        <h2 className="text-xl font-bold text-foreground font-editorial">
           Failed to Load Competitor Intelligence
         </h2>
-        <p className="mt-2 text-sm text-zinc-400 font-mono">
+        <p className="mt-2 text-sm text-muted-foreground font-mono">
           {error instanceof Error ? error.message : "An unexpected error occurred."}
         </p>
-        <div className="mt-6 flex items-center justify-center gap-4">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Dashboard
-          </Link>
-          <button
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <Button variant="outline" size="sm" render={<Link to="/" />}>
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
+            Back to Overview
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
             onClick={() => refetch()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
+            className="cursor-pointer gap-2"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -67,10 +71,10 @@ function CompetitorDetailPage() {
   const primarySource = sources[0];
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-6 pb-12">
       <CompetitorHeader competitor={competitor} primarySource={primarySource} />
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-8">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Active Campaign Extraction Card */}
         <CurrentCampaignCard snapshot={currentSnapshot} />
 

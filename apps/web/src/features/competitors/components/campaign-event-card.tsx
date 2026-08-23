@@ -1,11 +1,12 @@
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  TrendingUp,
-  TrendingDown,
-  Tag,
-  MousePointerClick,
-  Type,
-  ArrowRight,
-} from "lucide-react";
+  ArrowUp01Icon,
+  ArrowDown01Icon,
+  Tag01Icon,
+  Mouse01Icon,
+  TextIcon,
+  ArrowRight01Icon,
+} from "@hugeicons/core-free-icons";
 import type { CampaignEventRecord, CampaignEventType } from "../types.ts";
 
 interface CampaignEventCardProps {
@@ -19,25 +20,25 @@ function getEventMetadata(type: CampaignEventType) {
       return {
         label: "Price Change",
         badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-        icon: <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />,
+        icon: <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 text-emerald-400" />,
       };
     case "offer_changed":
       return {
         label: "Promotional Shift",
         badgeClass: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-        icon: <Tag className="h-3.5 w-3.5 text-amber-400" />,
+        icon: <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} className="size-3.5 text-amber-400" />,
       };
     case "cta_changed":
       return {
         label: "CTA Update",
         badgeClass: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
-        icon: <MousePointerClick className="h-3.5 w-3.5 text-cyan-400" />,
+        icon: <HugeiconsIcon icon={Mouse01Icon} strokeWidth={2} className="size-3.5 text-cyan-400" />,
       };
     case "headline_changed":
       return {
         label: "Headline Change",
         badgeClass: "bg-purple-500/10 text-purple-400 border-purple-500/30",
-        icon: <Type className="h-3.5 w-3.5 text-purple-400" />,
+        icon: <HugeiconsIcon icon={TextIcon} strokeWidth={2} className="size-3.5 text-purple-400" />,
       };
   }
 }
@@ -70,11 +71,11 @@ export function CampaignEventCard({ event, sourceName }: CampaignEventCardProps)
       return (
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 py-2">
           <div className="flex items-center gap-3 font-mono">
-            <span className="text-lg text-zinc-400 line-through">
+            <span className="text-base sm:text-lg text-muted-foreground line-through">
               ₹{beforeNum.toLocaleString("en-IN")}
             </span>
-            <ArrowRight className="h-4 w-4 text-zinc-600" />
-            <span className="text-xl font-bold text-white">
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
+            <span className="text-xl font-bold text-foreground">
               ₹{afterNum.toLocaleString("en-IN")}
             </span>
           </div>
@@ -86,11 +87,11 @@ export function CampaignEventCard({ event, sourceName }: CampaignEventCardProps)
                 : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
             }`}
           >
-            {isIncrease ? (
-              <TrendingUp className="h-3 w-3" />
-            ) : (
-              <TrendingDown className="h-3 w-3" />
-            )}
+            <HugeiconsIcon
+              icon={isIncrease ? ArrowUp01Icon : ArrowDown01Icon}
+              strokeWidth={2}
+              className="size-3"
+            />
             <span>
               {isIncrease ? `+₹${diff.toLocaleString("en-IN")}` : `-₹${Math.abs(diff).toLocaleString("en-IN")}`} ({isIncrease ? `+${percentChange}%` : `${percentChange}%`})
             </span>
@@ -117,12 +118,12 @@ export function CampaignEventCard({ event, sourceName }: CampaignEventCardProps)
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-1 text-xs">
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-zinc-400">
-          <span className="text-[10px] uppercase font-mono text-zinc-500 block mb-0.5">Previous</span>
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-muted-foreground">
+          <span className="text-[10px] uppercase font-mono text-muted-foreground block mb-0.5">Previous</span>
           {String(beforeValue ?? "None")}
         </div>
-        <div className="rounded-lg border border-zinc-700 bg-zinc-800/80 p-3 text-zinc-100 font-medium">
-          <span className="text-[10px] uppercase font-mono text-zinc-400 block mb-0.5">Updated</span>
+        <div className="rounded-lg border border-border/80 bg-muted/80 p-3 text-foreground font-medium">
+          <span className="text-[10px] uppercase font-mono text-muted-foreground block mb-0.5">Updated</span>
           {String(afterValue ?? "None")}
         </div>
       </div>
@@ -130,23 +131,23 @@ export function CampaignEventCard({ event, sourceName }: CampaignEventCardProps)
   };
 
   return (
-    <div className="relative rounded-xl border border-zinc-800/90 bg-zinc-900/50 p-5 backdrop-blur-sm transition-all hover:border-zinc-750 hover:bg-zinc-900/70">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-800/60">
+    <div className="relative rounded-xl border border-border/90 bg-card/60 p-5 backdrop-blur-sm transition-all hover:border-primary/40 hover:bg-card/80 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border/60">
         <div className="flex items-center gap-2">
           <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${meta.badgeClass}`}>
             {meta.icon}
             {meta.label}
           </div>
           {sourceName && (
-            <span className="text-xs text-zinc-500 font-mono hidden sm:inline">
+            <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
               · {sourceName}
             </span>
           )}
         </div>
 
-        <div className="text-xs text-zinc-400 font-mono">
-          <span className="text-zinc-200 font-medium">{formattedTime}</span>
-          <span className="text-zinc-500 mx-1.5">·</span>
+        <div className="text-xs text-muted-foreground font-mono">
+          <span className="text-foreground font-medium">{formattedTime}</span>
+          <span className="text-muted-foreground mx-1.5">·</span>
           <span>{formattedDate}</span>
         </div>
       </div>
