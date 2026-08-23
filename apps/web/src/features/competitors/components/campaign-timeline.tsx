@@ -1,7 +1,9 @@
+import { Badge } from "@campaign-lens/ui/components/badge";
+import { Card } from "@campaign-lens/ui/components/card";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Time02Icon, CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
+import { CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
 import type { CampaignEventRecord, TrackedSource } from "../types.ts";
-import { CampaignEventCard } from "./campaign-event-card.tsx";
+import { CampaignEvent } from "./campaign-event.tsx";
 
 interface CampaignTimelineProps {
   events: CampaignEventRecord[];
@@ -13,43 +15,38 @@ export function CampaignTimeline({ events, sources }: CampaignTimelineProps) {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between pb-2 border-b border-border/80">
-        <div className="flex items-center gap-2">
-          <HugeiconsIcon icon={Time02Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground font-mono">
-            Campaign Change Timeline
-          </h2>
-        </div>
-        <span className="text-xs text-muted-foreground font-mono">
-          {events.length} {events.length === 1 ? "semantic event" : "semantic events"} recorded
-        </span>
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <h3 className="text-base font-semibold text-foreground">
+          Campaign timeline
+        </h3>
+        <Badge variant="secondary" className="text-xs font-normal">
+          {events.length} {events.length === 1 ? "event" : "events"}
+        </Badge>
       </div>
 
       {events.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/80 bg-card/20 p-10 text-center">
-          <div className="mx-auto size-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-3 border border-border">
-            <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-5 text-emerald-500" />
+        <Card className="border-dashed p-8 text-center bg-muted/20">
+          <div className="mx-auto size-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-2">
+            <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-4 text-emerald-400" />
           </div>
-          <h3 className="text-sm font-medium text-foreground">Baseline Established</h3>
-          <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto font-mono">
-            Initial campaign snapshot has been stored. Future price, offer, CTA, or headline changes will automatically generate timeline events.
+          <h4 className="text-sm font-medium text-foreground">Baseline Established</h4>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+            Initial campaign snapshot stored. Future price or offer changes will appear here automatically.
           </p>
-        </div>
+        </Card>
       ) : (
-        <div className="relative pl-6 sm:pl-8 before:absolute before:left-2.5 sm:before:left-3.5 before:top-3 before:bottom-3 before:w-px before:bg-border">
-          <div className="space-y-6">
-            {events.map((event) => (
-              <div key={event.id} className="relative">
-                <div className="absolute -left-6 sm:-left-8 top-5 flex size-5 -translate-x-1/2 items-center justify-center rounded-full bg-background border-2 border-primary">
-                  <div className="size-1.5 rounded-full bg-primary" />
-                </div>
-                <CampaignEventCard
-                  event={event}
-                  sourceName={sourcesMap.get(event.sourceId)}
-                />
+        <div className="relative pl-6 before:absolute before:left-2 before:top-3 before:bottom-3 before:w-px before:bg-border space-y-4">
+          {events.map((event) => (
+            <div key={event.id} className="relative">
+              <div className="absolute -left-6 top-4 size-4 rounded-full border-2 border-primary bg-background flex items-center justify-center">
+                <div className="size-1 rounded-full bg-primary" />
               </div>
-            ))}
-          </div>
+              <CampaignEvent
+                event={event}
+                sourceName={sourcesMap.get(event.sourceId)}
+              />
+            </div>
+          ))}
         </div>
       )}
     </section>

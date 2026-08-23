@@ -14,14 +14,15 @@ import {
   AlertCircleIcon,
   CheckmarkCircle01Icon,
   Tag01Icon,
+  LinkSquare01Icon,
 } from "@hugeicons/core-free-icons";
-import { competitorsQueryOptions } from "../features/competitors/api/competitor.queries.ts";
+import { competitorsQueryOptions } from "../../features/competitors/api/competitor.queries.ts";
 
-export const Route = createFileRoute("/")({
-  component: OverviewPage,
+export const Route = createFileRoute("/competitors/")({
+  component: CompetitorsIndexPage,
 });
 
-function OverviewPage() {
+function CompetitorsIndexPage() {
   const { data, isLoading, error, refetch } = useQuery(competitorsQueryOptions());
 
   const competitors = data?.competitors ?? [];
@@ -31,10 +32,10 @@ function OverviewPage() {
       {/* Page Header */}
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Overview
+          Competitors
         </h1>
         <p className="text-sm text-muted-foreground">
-          Monitor competitor campaigns and meaningful market changes.
+          Track public campaign positioning, offers and pricing over time.
         </p>
       </div>
 
@@ -62,7 +63,7 @@ function OverviewPage() {
       ) : error ? (
         <Alert variant="destructive">
           <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-4" />
-          <AlertTitle>Failed to load overview data</AlertTitle>
+          <AlertTitle>Failed to load competitors</AlertTitle>
           <AlertDescription className="mt-2 flex items-center justify-between">
             <span className="text-xs">
               {error instanceof Error ? error.message : "An unexpected error occurred."}
@@ -83,20 +84,17 @@ function OverviewPage() {
           <div className="mx-auto size-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-3">
             <HugeiconsIcon icon={Store01Icon} strokeWidth={2} className="size-5" />
           </div>
-          <h3 className="text-base font-semibold text-foreground">No Competitors Tracked</h3>
+          <h3 className="text-base font-semibold text-foreground">No Tracked Competitors</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Trigger a scrape run from the API to seed and monitor competitor campaigns.
+            Trigger a scrape run from the API to seed Lumora and start tracking campaigns.
           </p>
         </Card>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">
-              Tracked competitors
-            </h2>
-            <Button variant="ghost" size="sm" render={<Link to="/competitors" />} className="text-xs text-muted-foreground hover:text-foreground">
-              View all ({competitors.length})
-            </Button>
+            <span className="text-xs text-muted-foreground">
+              Showing {competitors.length} tracked competitor
+            </span>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
@@ -107,13 +105,19 @@ function OverviewPage() {
               >
                 <CardHeader className="pb-3">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div>
+                    <div className="space-y-1">
                       <CardTitle className="text-lg font-bold text-foreground">
                         {comp.name}
                       </CardTitle>
-                      <CardDescription className="text-xs text-muted-foreground font-mono">
-                        {comp.domain}
-                      </CardDescription>
+                      <a
+                        href={comp.domain.startsWith("http") ? comp.domain : `https://${comp.domain}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono transition-colors"
+                      >
+                        <span>{comp.domain}</span>
+                        <HugeiconsIcon icon={LinkSquare01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
+                      </a>
                     </div>
 
                     <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1 text-xs self-start sm:self-auto">
@@ -139,7 +143,7 @@ function OverviewPage() {
                       ₹2,299
                     </span>
                     <span className="text-muted-foreground">·</span>
-                    <span className="text-muted-foreground tabular-nums">2 recent changes</span>
+                    <span className="text-muted-foreground tabular-nums">2 changes recorded</span>
                   </div>
 
                   <Button
@@ -148,7 +152,7 @@ function OverviewPage() {
                     render={<Link to="/competitors/$competitorId" params={{ competitorId: comp.id }} />}
                     className="gap-1.5 text-xs w-full sm:w-auto"
                   >
-                    <span>View competitor</span>
+                    <span>View Intelligence</span>
                     <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
                   </Button>
                 </CardFooter>

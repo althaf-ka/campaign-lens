@@ -61,7 +61,7 @@ sourceRoutes.post("/sources/:id/run", async (c) => {
       apiToken,
     });
 
-    if (result.status === "invalid") {
+    if (result.status === "invalid" || result.status === "degraded") {
       return c.json(result, 422);
     }
 
@@ -138,7 +138,7 @@ sourceRoutes.post("/debug/lumora/run", async (c) => {
       apiToken,
     });
 
-    if (result.status === "invalid") {
+    if (result.status === "invalid" || result.status === "degraded") {
       return c.json(result, 422);
     }
 

@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CompetitorsIndexRouteImport } from './routes/competitors/index'
 import { Route as CompetitorsCompetitorIdRouteImport } from './routes/competitors/$competitorId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompetitorsIndexRoute = CompetitorsIndexRouteImport.update({
+  id: '/competitors/',
+  path: '/competitors/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompetitorsCompetitorIdRoute = CompetitorsCompetitorIdRouteImport.update({
@@ -26,27 +32,31 @@ const CompetitorsCompetitorIdRoute = CompetitorsCompetitorIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/competitors/$competitorId': typeof CompetitorsCompetitorIdRoute
+  '/competitors/': typeof CompetitorsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/competitors/$competitorId': typeof CompetitorsCompetitorIdRoute
+  '/competitors': typeof CompetitorsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/competitors/$competitorId': typeof CompetitorsCompetitorIdRoute
+  '/competitors/': typeof CompetitorsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/competitors/$competitorId'
+  fullPaths: '/' | '/competitors/$competitorId' | '/competitors/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/competitors/$competitorId'
-  id: '__root__' | '/' | '/competitors/$competitorId'
+  to: '/' | '/competitors/$competitorId' | '/competitors'
+  id: '__root__' | '/' | '/competitors/$competitorId' | '/competitors/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompetitorsCompetitorIdRoute: typeof CompetitorsCompetitorIdRoute
+  CompetitorsIndexRoute: typeof CompetitorsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/competitors/': {
+      id: '/competitors/'
+      path: '/competitors'
+      fullPath: '/competitors/'
+      preLoaderRoute: typeof CompetitorsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/competitors/$competitorId': {
@@ -71,6 +88,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompetitorsCompetitorIdRoute: CompetitorsCompetitorIdRoute,
+  CompetitorsIndexRoute: CompetitorsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

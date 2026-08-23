@@ -1,6 +1,7 @@
 import {
   campaignSnapshotSchema,
   diffCampaignSnapshots,
+  evaluateSnapshotIntegrity,
   type CampaignSnapshot,
   type CampaignChange,
 } from "@campaign-lens/domain";
@@ -15,7 +16,6 @@ import {
   getLatestSnapshotBySourceId,
   createCampaignEvents,
 } from "@campaign-lens/db";
-
 
 import type { z } from "zod";
 
@@ -36,6 +36,13 @@ export type SourceRunResult =
       sourceId: string;
       scrapeRunId: string;
       issues: z.ZodIssue[];
+    }
+  | {
+      status: "degraded";
+      sourceId: string;
+      scrapeRunId: string;
+      missing: string[];
+      snapshot: CampaignSnapshot;
     };
 
 export interface RunSourceOptions {
@@ -46,7 +53,7 @@ export interface RunSourceOptions {
 
 /**
  * Orchestrates fetching competitor campaign data, validating the structure,
- * persisting snapshot history, and detecting semantic changes.
+ * evaluating domain extraction integrity, persisting snapshot history, and detecting semantic changes.
  */
 export async function runSource(
   options: RunSourceOptions,
@@ -117,10 +124,40 @@ export async function runSource(
 
   const currentSnapshot = validation.data;
 
-  // 5. Query latest previous snapshot to compute diff
+  // 5. Evaluate domain extraction integrity contract for this source type
+  const integrity = evaluateSnapshotIntegrity({
+    snapshot: currentSnapshot,
+    sourceType: source.type,
+  });
+
+  if (integrity.status === "degraded") {
+    console.warn(
+      `[Source ${source.id}] Scraper output has degraded extraction integrity. Missing required fields:`,
+      integrity.missing,
+    );
+
+    // Update scrape run and source health to degraded
+    await updateScrapeRunStatus(db, scrapeRun.id, {
+      status: "invalid",
+      errorCode: `EXTRACTION_INTEGRITY_DEGRADED: ${integrity.missing.join(", ")}`,
+      completedAt: new Date(),
+    });
+    await updateSourceHealth(db, source.id, "degraded");
+
+    // DO NOT insert a snapshot, DO NOT diff, DO NOT create events
+    return {
+      status: "degraded",
+      sourceId: source.id,
+      scrapeRunId: scrapeRun.id,
+      missing: integrity.missing,
+      snapshot: currentSnapshot,
+    };
+  }
+
+  // 6. Query latest previous snapshot to compute diff
   const previousSnapshot = await getLatestSnapshotBySourceId(db, source.id);
 
-  // 6. Persist the new canonical snapshot
+  // 7. Persist the new canonical snapshot
   const insertedSnapshot = await createSnapshot(db, {
     sourceId: source.id,
     scrapeRunId: scrapeRun.id,
@@ -135,7 +172,7 @@ export async function runSource(
     data: currentSnapshot,
   });
 
-  // 7. Calculate semantic changes if previous snapshot exists
+  // 8. Calculate semantic changes if previous snapshot exists
   let detectedChanges: CampaignChange[] = [];
   if (previousSnapshot && previousSnapshot.data) {
     detectedChanges = diffCampaignSnapshots(
@@ -158,7 +195,7 @@ export async function runSource(
     }
   }
 
-  // 8. Update source status to healthy and mark run succeeded
+  // 9. Update source status to healthy and mark run succeeded
   await updateSourceHealth(db, source.id, "healthy");
   await updateScrapeRunStatus(db, scrapeRun.id, {
     status: "succeeded",

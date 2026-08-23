@@ -1,22 +1,13 @@
 import { useState } from "react";
-import { HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   SidebarProvider,
   SidebarInset,
-  SidebarTrigger,
 } from "@campaign-lens/ui/components/sidebar";
-import { Separator } from "@campaign-lens/ui/components/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@campaign-lens/ui/components/breadcrumb";
 import { TooltipProvider } from "@campaign-lens/ui/components/tooltip";
 import { AppSidebar } from "#components/app-sidebar";
+import { AppHeader } from "#components/app-header";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -30,10 +21,23 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "CampaignLens — Competitor Campaign Intelligence",
+        title: "CampaignLens",
       },
     ],
     links: [
+      {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,
@@ -63,29 +67,10 @@ function RootComponent() {
         <SidebarProvider defaultOpen={true}>
           <AppSidebar />
           <SidebarInset className="flex flex-col min-h-screen bg-background">
-            <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border/80 bg-background/80 px-4 backdrop-blur-md">
-              <SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink render={<Link to="/" />}>
-                      CampaignLens
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage className="font-medium text-foreground">
-                      Competitive Intelligence
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-            </header>
-
-            <main className="flex-1 w-full">
+            <AppHeader />
+            <div className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
               <Outlet />
-            </main>
+            </div>
           </SidebarInset>
         </SidebarProvider>
       </TooltipProvider>

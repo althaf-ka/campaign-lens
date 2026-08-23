@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -6,13 +6,13 @@ import {
   RefreshIcon,
   ArrowLeft01Icon,
 } from "@hugeicons/core-free-icons";
-import { Link } from "@tanstack/react-router";
 import { Button } from "@campaign-lens/ui/components/button";
 import { Skeleton } from "@campaign-lens/ui/components/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@campaign-lens/ui/components/alert";
 import { competitorQueryOptions } from "../../features/competitors/api/competitor.queries.ts";
 import { CompetitorHeader } from "../../features/competitors/components/competitor-header.tsx";
 import { CurrentCampaignCard } from "../../features/competitors/components/current-campaign.tsx";
-import { SourceHealthCard } from "../../features/competitors/components/source-health.tsx";
+import { SourceList } from "../../features/competitors/components/source-list.tsx";
 import { CampaignTimeline } from "../../features/competitors/components/campaign-timeline.tsx";
 
 export const Route = createFileRoute("/competitors/$competitorId")({
@@ -27,40 +27,63 @@ function CompetitorDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <Skeleton className="h-20 rounded-xl" />
-        <Skeleton className="h-64 rounded-xl" />
-        <Skeleton className="h-36 rounded-xl" />
-        <Skeleton className="h-80 rounded-xl" />
+      <div className="space-y-8 pb-12">
+        <div className="flex items-center justify-between pb-6 border-b border-border">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <Skeleton className="h-9 w-28" />
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-7 w-3/4" />
+          <Skeleton className="h-6 w-1/2" />
+          <div className="pt-4 border-t border-border flex justify-between items-center">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-8 w-28" />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6 space-y-3">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+
+        <div className="space-y-4">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <div className="mx-auto size-12 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive mb-4">
-          <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-6" />
-        </div>
-        <h2 className="text-xl font-bold text-foreground font-editorial">
-          Failed to Load Competitor Intelligence
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground font-mono">
-          {error instanceof Error ? error.message : "An unexpected error occurred."}
-        </p>
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <Button variant="outline" size="sm" render={<Link to="/" />}>
+      <div className="py-12 space-y-4 max-w-lg mx-auto">
+        <Alert variant="destructive">
+          <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-4" />
+          <AlertTitle>Failed to load competitor</AlertTitle>
+          <AlertDescription className="mt-1 text-xs">
+            {error instanceof Error ? error.message : "An unexpected error occurred while fetching competitor intelligence."}
+          </AlertDescription>
+        </Alert>
+
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button variant="outline" size="sm" render={<Link to="/competitors" />} className="gap-1.5 text-xs">
             <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
-            Back to Overview
+            <span>Back to Competitors</span>
           </Button>
           <Button
             variant="default"
             size="sm"
             onClick={() => refetch()}
-            className="cursor-pointer gap-2"
+            className="cursor-pointer gap-1.5 text-xs"
           >
             <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-            Retry
+            <span>Retry</span>
           </Button>
         </div>
       </div>
@@ -71,19 +94,18 @@ function CompetitorDetailPage() {
   const primarySource = sources[0];
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-8 pb-12">
+      {/* Competitor Header */}
       <CompetitorHeader competitor={competitor} primarySource={primarySource} />
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Active Campaign Extraction Card */}
-        <CurrentCampaignCard snapshot={currentSnapshot} />
+      {/* Current Campaign Extraction */}
+      <CurrentCampaignCard snapshot={currentSnapshot} />
 
-        {/* Tracked Sources & Scraper Studio Health */}
-        <SourceHealthCard sources={sources} />
+      {/* Tracked Sources & Status */}
+      <SourceList sources={sources} />
 
-        {/* Hero Timeline of Semantic Changes */}
-        <CampaignTimeline events={events} sources={sources} />
-      </div>
+      {/* Semantic Timeline of Changes */}
+      <CampaignTimeline events={events} sources={sources} />
     </div>
   );
 }
