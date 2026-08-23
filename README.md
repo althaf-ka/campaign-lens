@@ -11,7 +11,6 @@ CampaignLens monitors competitors' public marketing websites and turns changes t
 - **CampaignLens Web App**: [https://campaign-lens.demostore.workers.dev](https://campaign-lens.demostore.workers.dev)
 - **CampaignLens API**: [https://campaign-lens-api.demostore.workers.dev](https://campaign-lens-api.demostore.workers.dev)
 - **Controlled Lumora Demo Target**: [https://lumora-58u.pages.dev](https://lumora-58u.pages.dev)
-- **Demo Video**: `<add after upload>`
 
 ---
 
@@ -270,25 +269,3 @@ pnpm dev
 - **Zero Client Token Exposure**: The frontend never receives, stores, or transmits third-party API credentials.
 - **Sanitized Upstream Errors**: Upstream scraper errors are parsed and sanitized into typed error codes before presentation, ensuring internal tokens or infrastructure URLs are never leaked.
 
----
-
-## Scrape-Verse Hackathon Tracks
-
-### WEB-SLINGER — Best Use of Bright Data
-- Uses custom **Bright Data Scraper Studio** browser collector (`c_mt5kun512itlsaiw1s`) tailored for marketing intelligence.
-- Automated developer infrastructure workflow via Bright Data CLI.
-- Integrated **AI Self-Healing** lifecycle with automated template refactoring and safety approval gates.
-- Controlled DOM-drift experiment demonstrating resilient recovery from crawler selector timeout.
-
-### SUIT-UP — Best UI
-- **Attention Queue**: High-level dashboard surfacing actionable competitor campaign changes and degraded scrapers.
-- **Competitor Onboarding & Diagnostics**: Clean onboarding flow with live Scraper Studio connection testing.
-- **Semantic Campaign Timeline**: Chronological event feed with badges and field change highlights.
-- **Side-by-Side Comparison Dialog**: Visual inspection of historical snapshot differences.
-- **Activity & Recovery Center**: Operational transparency with real-time text shimmering during active collection and repair cycles.
-
-### SPIDER-SENSE — Best Clean Code
-- Strict separation of concerns across a 7-package Turborepo monorepo.
-- Pure deterministic domain logic with zero external side effects in `@campaign-lens/domain`.
-- Resumable, bounded state machine architecture returning HTTP 202 Accepted.
-- 76 automated tests with 100% pass rate, 0 lint warnings, and strict TypeScript types across all workspaces.

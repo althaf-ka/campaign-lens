@@ -1,0 +1,8 @@
+# Cloudflare Worker Local Environment Secrets (apps/api/.dev.vars)
+# Copy this file to apps/api/.dev.vars when running `pnpm --filter api dev` locally.
+
+# PostgreSQL Connection String (e.g. Neon Serverless)
+DATABASE_URL="postgresql://user:password@ep-sample-pooler.region.neon.tech/campaign_lens?sslmode=require"
+
+# Bright Data API Token (for Scraper Studio & Self-Healing)
+BRIGHT_DATA_API_TOKEN="your_bright_data_api_token_here"
